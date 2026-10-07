@@ -166,7 +166,7 @@ export interface Contact {
   identityKeyPublic: string;
   signedPrekeyPublic: string | null;
   signedPrekeySignature: string | null;
-  verificationStatus: 'UNVERIFIED' | 'VERIFIED' | 'BLOCKED';
+  verificationStatus: 'UNVERIFIED' | 'VERIFIED' | 'BLOCKED' | 'PENDING';
   verifiedAt: number | null;
   safetyNumber: string | null;
   syncStatus: 'SYNCED' | 'PENDING' | 'CONFLICT';
