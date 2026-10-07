@@ -1,0 +1,275 @@
+name: CI
+
+on:
+  push:
+    branches: [main, develop]
+  pull_request:
+    branches: [main, develop]
+
+env:
+  NODE_VERSION: '20'
+  TURBO_TOKEN: ${{ secrets.TURBO_TOKEN }}
+  TURBO_TEAM: ${{ secrets.TURBO_TEAM }}
+
+jobs:
+  # ──────────────────────────────────────────────
+  # Type Checking
+  # ──────────────────────────────────────────────
+  typecheck:
+    name: Type Check
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: 'npm'
+
+      - name: Install Dependencies
+        run: npm ci --legacy-peer-deps
+
+      - name: Type Check Mobile
+        run: npx tsc --noEmit
+
+      # Backend typecheck (if monorepo)
+      # - name: Type Check Backend
+      #   run: cd backend && npm ci && npx tsc --noEmit
+
+  # ──────────────────────────────────────────────
+  # Linting
+  # ──────────────────────────────────────────────
+  lint:
+    name: Lint
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: 'npm'
+
+      - name: Install Dependencies
+        run: npm ci --legacy-peer-deps
+
+      - name: Lint Mobile
+        run: npx expo lint
+
+      # Backend lint
+      # - name: Lint Backend
+      #   run: cd backend && npm ci && npm run lint
+
+  # ──────────────────────────────────────────────
+  # Unit Tests
+  # ──────────────────────────────────────────────
+  test-unit:
+    name: Unit Tests
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: 'npm'
+
+      - name: Install Dependencies
+        run: npm ci --legacy-peer-deps
+
+      - name: Run Unit Tests
+        run: npm run test:unit -- --coverage --run
+
+      - name: Upload Coverage
+        uses: codecov/codecov-action@v3
+        with:
+          flags: unit
+          files: ./coverage/lcov.info
+          fail_ci_if_error: true
+
+  # ──────────────────────────────────────────────
+  # Integration Tests
+  # ──────────────────────────────────────────────
+  test-integration:
+    name: Integration Tests
+    runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:16-alpine
+        env:
+          POSTGRES_DB: denden_test
+          POSTGRES_USER: test
+          POSTGRES_PASSWORD: test
+        ports: [5432:5432]
+        options: >-
+          --health-cmd "pg_isready -U test"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: 'npm'
+
+      - name: Install Dependencies
+        run: npm ci --legacy-peer-deps
+
+      - name: Run Integration Tests
+        run: npm run test:integration -- --run
+        env:
+          DATABASE_URL: postgresql://test:test@localhost:5432/denden_test
+
+      - name: Upload Coverage
+        uses: codecov/codecov-action@v3
+        with:
+          flags: integration
+          files: ./coverage/lcov.info
+
+  # ──────────────────────────────────────────────
+  # Build Validation
+  # ──────────────────────────────────────────────
+  build:
+    name: Build Validation
+    runs-on: ubuntu-latest
+    needs: [typecheck, lint]
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: 'npm'
+
+      - name: Install Dependencies
+        run: npm ci --legacy-peer-deps
+
+      - name: Build Web Export
+        run: npx expo export --platform web
+
+      # Backend build
+      # - name: Build Backend
+      #   run: cd backend && npm ci && npm run build
+
+  # ──────────────────────────────────────────────
+  # Security Scan
+  # ──────────────────────────────────────────────
+  security:
+    name: Security Scan
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: 'npm'
+
+      - name: Install Dependencies
+        run: npm ci --legacy-peer-deps
+
+      - name: Audit Dependencies
+        run: npm audit --audit-level=high
+
+      - name: Check for Vulnerabilities
+        run: npx audit-ci --config audit-ci.json
+
+      # Snyk (optional - requires SNYK_TOKEN secret)
+      # - name: Snyk Security Scan
+      #   uses: snyk/actions/node@master
+      #   if: ${{ secrets.SNYK_TOKEN }}
+      #   with:
+      #     command: test
+      #     args: --severity-threshold=high
+
+  # ──────────────────────────────────────────────
+  # E2E Tests (scheduled, not on every PR)
+  # ──────────────────────────────────────────────
+  test-e2e:
+    name: E2E Tests
+    runs-on: macos-latest
+    if: github.event_name == 'schedule' || github.event_name == 'workflow_dispatch'
+    timeout-minutes: 60
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: 'npm'
+
+      - name: Setup Xcode
+        uses: maxim-lobanov/setup-xcode@v1
+        with:
+          xcode-version: '15.4'
+
+      - name: Install Dependencies
+        run: npm ci --legacy-peer-deps
+
+      - name: Build iOS Simulator
+        run: npx detox build -c ios.sim.release
+
+      - name: Run Detox Tests
+        run: npx detox test -c ios.sim.release --headless
+
+      - name: Upload Artifacts
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: detox-artifacts
+          path: artifacts/
+
+  # ──────────────────────────────────────────────
+  # Dependency Review
+  # ──────────────────────────────────────────────
+  deps:
+    name: Dependency Review
+    runs-on: ubuntu-latest
+    if: github.event_name == 'pull_request'
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Review Dependencies
+        uses: actions/dependency-review-action@v4
+        with:
+          config-file: '.github/dependency-review-config.yml'
+          fail-on-severity: high
+
+  # ──────────────────────────────────────────────
+  # Final Status
+  # ──────────────────────────────────────────────
+  status:
+    name: CI Status
+    runs-on: ubuntu-latest
+    needs: [typecheck, lint, test-unit, test-integration, build, security]
+    if: always()
+    steps:
+      - name: Check Job Status
+        run: |
+          if [[ "${{ needs.typecheck.result }}" != "success" ]] || \
+             [[ "${{ needs.lint.result }}" != "success" ]] || \
+             [[ "${{ needs.test-unit.result }}" != "success" ]] || \
+             [[ "${{ needs.test-integration.result }}" != "success" ]] || \
+             [[ "${{ needs.build.result }}" != "success" ]] || \
+             [[ "${{ needs.security.result }}" != "success" ]]; then
+            echo "::error::One or more required jobs failed"
+            exit 1
+          fi
+          echo "All checks passed!"
