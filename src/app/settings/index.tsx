@@ -50,7 +50,7 @@ export default function SettingsScreen() {
           icon="notifications-outline"
           title="Notifications"
           subtitle="Message sounds, vibration, preview"
-          onPress={() => {}}
+          onPress={() => router.push('/notifications/settings')}
         />
         <SettingsItem
           icon="cloud-outline"
