@@ -39,6 +39,19 @@ export class MessagesRepository {
     return result;
   }
 
+  async getAllByUser(userId: string, limit: number = 10000): Promise<Message[]> {
+    const db = await getDatabase();
+    return db.getAllAsync<Message>(
+      `SELECT m.* FROM messages m
+       JOIN conversations c ON m.conversation_id = c.id
+       WHERE c.user_id = ? AND m.deleted_at IS NULL
+       ORDER BY m.created_at DESC
+       LIMIT ?`,
+      userId,
+      limit
+    );
+  }
+
   async getById(id: string): Promise<Message | null> {
     const db = await getDatabase();
     return db.getFirstAsync<Message>('SELECT * FROM messages WHERE id = ?', id);

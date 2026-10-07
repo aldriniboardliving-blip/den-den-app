@@ -63,6 +63,19 @@ export default function AppLayout() {
           ),
         }}
       />
+      <Tabs.Screen
+        name="backup/settings"
+        options={{
+          title: 'Backup',
+          tabBarIcon: ({ focused, color }) => (
+            <Ionicons
+              name={focused ? 'cloud-done' : 'cloud-outline'}
+              size={24}
+              color={color}
+            />
+          ),
+        }}
+      />
     </Tabs>
   );
 }
