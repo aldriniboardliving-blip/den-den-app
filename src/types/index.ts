@@ -308,3 +308,5 @@ export interface SafetyNumber {
   number: string;
   qrCode: string;
 }
+
+export type { ConversationWithLastMessage } from '../features/chat/types';

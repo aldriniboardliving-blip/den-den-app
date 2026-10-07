@@ -49,6 +49,7 @@ export default function MessageThreadScreen() {
           }
           setConversation({
             ...conv,
+            isGroup: conv.type === 'GROUP',
             contact,
             unreadCount: conv.unreadCount || 0,
           });

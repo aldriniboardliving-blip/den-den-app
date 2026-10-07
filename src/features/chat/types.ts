@@ -1,5 +1,5 @@
 // src/features/chat/types.ts
-import { Message, Conversation, Contact } from '@/types';
+import { Message, Conversation, Contact, ConversationMember } from '@/types';
 
 export interface ChatMessage extends Message {
   isOptimistic?: boolean;
@@ -11,6 +11,14 @@ export interface ConversationWithLastMessage extends Conversation {
   lastMessage?: ChatMessage;
   unreadCount: number;
   contact?: Contact;
+  members?: ConversationMember[];
+  isGroup: boolean;
+}
+
+export interface CreateGroupParams {
+  title: string;
+  memberAccountIds: string[];
+  avatarUrl?: string;
 }
 
 export interface SendMessageParams {
@@ -36,7 +44,7 @@ export interface MessageListProps {
 
 export interface MessageInputProps {
   conversationId: string;
-  onSend: (content: string) => void;
+  onSend: (content: string, attachments?: string[]) => void;
   disabled?: boolean;
   placeholder?: string;
 }

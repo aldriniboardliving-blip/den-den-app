@@ -2,17 +2,17 @@
 // Chat store using Zustand
 
 import { create } from 'zustand';
-import type { Message, Conversation } from '../types';
+import type { Message, Conversation, ConversationWithLastMessage } from '../types';
 
 interface ChatState {
-  conversations: Conversation[];
+  conversations: ConversationWithLastMessage[];
   messages: Map<string, Message[]>;
   activeConversationId: string | null;
   isLoading: boolean;
 
-  setConversations: (conversations: Conversation[]) => void;
-  addConversation: (conversation: Conversation) => void;
-  updateConversation: (id: string, updates: Partial<Conversation>) => void;
+  setConversations: (conversations: ConversationWithLastMessage[]) => void;
+  addConversation: (conversation: ConversationWithLastMessage) => void;
+  updateConversation: (id: string, updates: Partial<ConversationWithLastMessage>) => void;
   removeConversation: (id: string) => void;
   setActiveConversation: (id: string | null) => void;
   setMessages: (conversationId: string, messages: Message[]) => void;

@@ -32,7 +32,7 @@ export default function NewChatScreen() {
       // For now, just go back - conversation creation would be in a separate step
     } else {
       // Group chat - navigate to group creation screen
-      // router.push('/chat/new-group', { selectedContacts });
+      router.push('/chat/create-group', { selectedContacts: JSON.stringify(selectedContacts) } as any);
     }
   }, [selectedContacts]);
 

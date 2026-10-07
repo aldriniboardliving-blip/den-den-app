@@ -8,8 +8,11 @@ import {
   StyleSheet,
   Platform,
   Keyboard,
+  Alert,
+  Image,
 } from 'react-native';
 import { MessageInputProps } from '../types';
+import { Ionicons } from '@expo/vector-icons';
 
 export function MessageInput({
   conversationId,
@@ -19,13 +22,15 @@ export function MessageInput({
 }: MessageInputProps) {
   const [text, setText] = useState('');
   const [height, setHeight] = useState(44);
+  const [attachments, setAttachments] = useState<string[]>([]);
   const textInputRef = useRef<TextInput>(null);
 
   const handleSend = () => {
     const trimmed = text.trim();
-    if (!trimmed || disabled) return;
-    onSend(trimmed);
+    if (!trimmed && attachments.length === 0 || disabled) return;
+    onSend(trimmed, attachments);
     setText('');
+    setAttachments([]);
     setHeight(44);
     textInputRef.current?.blur();
   };
@@ -46,8 +51,56 @@ export function MessageInput({
     }
   };
 
+  const handleAddAttachment = () => {
+    Alert.alert(
+      'Add Attachment',
+      'Choose attachment type',
+      [
+        { text: 'Cancel', style: 'cancel' },
+        { text: 'Photo Library', onPress: () => pickImage() },
+        { text: 'Camera', onPress: () => takePhoto() },
+        { text: 'File', onPress: () => pickFile() },
+      ]
+    );
+  };
+
+  const pickImage = () => {
+    // TODO: Implement with expo-image-picker
+    Alert.alert('Not implemented', 'Photo library picker coming soon');
+  };
+
+  const takePhoto = () => {
+    // TODO: Implement with expo-camera/expo-image-picker
+    Alert.alert('Not implemented', 'Camera coming soon');
+  };
+
+  const pickFile = () => {
+    // TODO: Implement with expo-document-picker
+    Alert.alert('Not implemented', 'File picker coming soon');
+  };
+
+  const removeAttachment = (index: number) => {
+    setAttachments(prev => prev.filter((_, i) => i !== index));
+  };
+
   return (
     <View style={[styles.container, { height }]}>
+      {attachments.length > 0 && (
+        <View style={styles.attachmentsPreview}>
+          {attachments.map((uri, index) => (
+            <View key={index} style={styles.attachmentItem}>
+              <Image source={{ uri }} style={styles.attachmentThumbnail} />
+              <TouchableOpacity
+                style={styles.removeAttachmentButton}
+                onPress={() => removeAttachment(index)}
+                activeOpacity={0.7}
+              >
+                <Ionicons name="close" size={16} color="#f2f2f2" />
+              </TouchableOpacity>
+            </View>
+          ))}
+        </View>
+      )}
       <View style={styles.inputWrapper}>
         <TextInput
           ref={textInputRef}
@@ -70,14 +123,22 @@ export function MessageInput({
           editable={!disabled}
           textAlignVertical="top"
         />
+        <TouchableOpacity
+          style={styles.attachButton}
+          onPress={handleAddAttachment}
+          disabled={disabled}
+          activeOpacity={0.7}
+        >
+          <Ionicons name="add-circle-outline" size={24} color="#8b949e" />
+        </TouchableOpacity>
       </View>
       <TouchableOpacity
         style={[
           styles.sendButton,
-          (!text.trim() || disabled) && styles.sendButtonDisabled,
+          ((!text.trim() && attachments.length === 0) || disabled) && styles.sendButtonDisabled,
         ]}
         onPress={handleSend}
-        disabled={!text.trim() || disabled}
+        disabled={(!text.trim() && attachments.length === 0) || disabled}
         activeOpacity={0.7}
       >
         <Text style={styles.sendButtonText}>Send</Text>
@@ -131,5 +192,38 @@ const styles = StyleSheet.create({
     fontSize: 16,
     fontWeight: '600',
     color: '#101010',
+  },
+  attachmentsPreview: {
+    flexDirection: 'row',
+    paddingHorizontal: 12,
+    paddingBottom: 8,
+    gap: 8,
+  },
+  attachmentItem: {
+    position: 'relative',
+    width: 60,
+    height: 60,
+    borderRadius: 8,
+    overflow: 'hidden',
+  },
+  attachmentThumbnail: {
+    width: '100%',
+    height: '100%',
+    resizeMode: 'cover',
+  },
+  removeAttachmentButton: {
+    position: 'absolute',
+    top: -6,
+    right: -6,
+    width: 18,
+    height: 18,
+    borderRadius: 9,
+    backgroundColor: '#ff453a',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  attachButton: {
+    padding: 10,
+    marginLeft: 8,
   },
 });

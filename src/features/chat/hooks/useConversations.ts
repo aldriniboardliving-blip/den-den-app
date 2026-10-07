@@ -22,6 +22,7 @@ export function useConversations() {
       // Transform to ConversationWithLastMessage
       const enriched = conversationsList.map(conv => ({
         ...conv,
+        isGroup: conv.type === 'GROUP',
         unreadCount: conv.unreadCount,
         lastMessage: undefined,
         contact: undefined,
