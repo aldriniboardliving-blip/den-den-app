@@ -112,7 +112,18 @@ export interface Message {
   serverMessageId: string | null;
   lastSyncAttemptAt: number | null;
   syncAttemptCount: number;
+  reactions?: MessageReaction[];
+  replyToMessageId?: string;
 }
+
+export interface MessageReaction {
+  emoji: string;
+  userId: string;
+  userAccountId: string;
+  createdAt: number;
+}
+
+export type ReactionEmoji = '👍' | '👎' | '❤️' | '😂' | '😮' | '😢' | '🎉' | '🙏';
 
 export interface MessageRecipient {
   id: string;

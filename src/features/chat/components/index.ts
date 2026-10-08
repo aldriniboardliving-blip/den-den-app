@@ -6,3 +6,6 @@ export * from './ContactSelector';
 export * from './TypingIndicator';
 export * from './ChatHeader';
 export * from './Avatar';
+export * from './MessageReactions';
+export * from './ReactionPicker';
+export * from './MessageReactions';

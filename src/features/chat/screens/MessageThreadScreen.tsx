@@ -8,6 +8,7 @@ import {
   Keyboard,
   Platform,
   SafeAreaView,
+  TouchableOpacity,
 } from 'react-native';
 import { Link, useLocalSearchParams, router } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
@@ -151,6 +152,15 @@ export default function MessageThreadScreen() {
           subtitle={getSubtitle()}
           avatar={getAvatar()}
           onPress={() => {}}
+          actions={
+            <TouchableOpacity
+              style={styles.searchButton}
+              onPress={() => router.push(`/chat/search?conversationId=${conversationId}`)}
+              activeOpacity={0.7}
+            >
+              <Ionicons name="search" size={24} color="#f2f2f2" />
+            </TouchableOpacity>
+          }
         />
       </View>
       
@@ -218,5 +228,8 @@ const styles = StyleSheet.create({
   loadingText: {
     fontSize: 16,
     color: '#8b949e',
+  },
+  searchButton: {
+    padding: 8,
   },
 });

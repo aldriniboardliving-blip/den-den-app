@@ -1,5 +1,5 @@
 // src/features/chat/components/MessageBubble.tsx
-import React from 'react';
+import React, { useState } from 'react';
 import {
   View,
   Text,
@@ -11,6 +11,8 @@ import {
 } from 'react-native';
 import { ChatMessage, MessageBubbleProps } from '../types';
 import { formatTime } from '@/utils/date';
+import { MessageReactions } from './MessageReactions';
+import { ReactionPicker } from './ReactionPicker';
 
 const MAX_WIDTH = '75%';
 
@@ -25,11 +27,28 @@ export function MessageBubble({
   const isFailed = message.isFailed;
   const isSending = message.isSending;
   const isPending = message.status === 'PENDING' || message.status === 'RELAYED';
+  const [showReactionPicker, setShowReactionPicker] = useState(false);
 
   const handleRetry = () => {
     if (isFailed && onRetry) {
       onRetry(message.id);
     }
+  };
+
+  const handleLongPress = () => {
+    if (onLongPress) {
+      onLongPress(message);
+    } else {
+      setShowReactionPicker(true);
+    }
+  };
+
+  const handleAddReaction = (messageId: string, emoji: string) => {
+    setShowReactionPicker(false);
+  };
+
+  const handleRemoveReaction = (messageId: string, emoji: string) => {
+    setShowReactionPicker(false);
   };
 
   const bubbleStyle = [
@@ -81,7 +100,7 @@ export function MessageBubble({
       <View style={styles.bubbleWrapper}>
         <Pressable
           style={bubbleStyle}
-          onLongPress={() => onLongPress?.(message)}
+          onLongPress={handleLongPress}
         >
           {message.contentType === 'SYSTEM' ? (
             <Text style={[styles.systemText, isOwn ? styles.systemTextOwn : styles.systemTextOther]}>
@@ -108,7 +127,21 @@ export function MessageBubble({
             <Text style={styles.timestamp}>{formatTime(message.createdAt)}</Text>
           </View>
         )}
+        {/* Reactions */}
+        <MessageReactions
+          message={message}
+          currentUserId=""
+          onAddReaction={() => {}}
+          onRemoveReaction={() => {}}
+        />
       </View>
+      
+      {/* Reaction Picker */}
+      <ReactionPicker
+        isVisible={showReactionPicker}
+        onEmojiSelect={() => setShowReactionPicker(false)}
+        onClose={() => setShowReactionPicker(false)}
+      />
     </View>
   );
 }
@@ -226,3 +259,5 @@ const styles = StyleSheet.create({
     color: '#f2f2f2',
   },
 });
+
+export default MessageBubble;

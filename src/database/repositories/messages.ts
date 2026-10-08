@@ -194,6 +194,27 @@ export class MessagesRepository {
     );
     return result?.count || 0;
   }
+
+  async searchMessages(conversationId: string, userId: string, query: string, limit: number = 50): Promise<Message[]> {
+    const db = await getDatabase();
+    
+    // Use FTS-like search with LIKE for content search
+    // In a production app, you'd want to use SQLite FTS5 or a proper search index
+    const sanitizedQuery = `%${query.replace(/%/g, '\\%').replace(/_/g, '\\_')}%`;
+    
+    return db.getAllAsync<Message>(
+      `SELECT * FROM messages 
+       WHERE conversation_id = ? 
+       AND deleted_at IS NULL
+       AND (content LIKE ? OR content_encrypted LIKE ?)
+       ORDER BY created_at DESC
+       LIMIT ?`,
+      conversationId,
+      sanitizedQuery,
+      sanitizedQuery,
+      limit
+    );
+  }
 }
 
 function generateId(): string {
