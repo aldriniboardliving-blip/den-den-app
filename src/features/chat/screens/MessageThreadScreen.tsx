@@ -31,6 +31,7 @@ export default function MessageThreadScreen() {
   const { messages, loading, hasMore, loadMore, sendMessage, retryMessage, refresh } = useMessages(conversationId || null);
   const [conversation, setConversation] = useState<ConversationWithLastMessage | null>(null);
   const [showLoadMore, setShowLoadMore] = useState(false);
+  const [replyTo, setReplyTo] = useState<ChatMessage | null>(null);
   const flatListRef = useRef<FlatList<ChatMessage>>(null);
   const [keyboardHeight, setKeyboardHeight] = useState(0);
 
@@ -62,13 +63,14 @@ export default function MessageThreadScreen() {
     loadConversation();
   }, [conversationId, user]);
 
-  const handleSend = useCallback(async (content: string) => {
+  const handleSend = useCallback(async (content: string, attachments?: string[], replyToMessageId?: string) => {
     try {
-      await sendMessage(content);
+      await sendMessage(content, 'TEXT', attachments, replyToMessageId);
       // Scroll to bottom after sending
       setTimeout(() => {
         flatListRef.current?.scrollToEnd({ animated: true });
       }, 100);
+      setReplyTo(null);
     } catch (error) {
       console.error('Failed to send message:', error);
     }
@@ -77,6 +79,10 @@ export default function MessageThreadScreen() {
   const handleRetry = useCallback((messageId: string) => {
     retryMessage(messageId);
   }, [retryMessage]);
+
+  const handleReply = useCallback((message: ChatMessage) => {
+    setReplyTo(message);
+  }, []);
 
   const scrollToBottom = useCallback(() => {
     flatListRef.current?.scrollToEnd({ animated: true });
@@ -106,6 +112,7 @@ export default function MessageThreadScreen() {
         showTimestamp={true}
         onLongPress={() => {}}
         onRetry={handleRetry}
+        onReply={handleReply}
       />
     );
   };
@@ -191,6 +198,8 @@ export default function MessageThreadScreen() {
         onSend={handleSend}
         disabled={!user}
         placeholder="Message"
+        replyTo={replyTo}
+        onCancelReply={() => setReplyTo(null)}
       />
     </SafeAreaView>
   );

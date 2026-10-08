@@ -8,11 +8,13 @@ import {
   Image,
   Pressable,
   Animated,
+  Alert,
 } from 'react-native';
 import { ChatMessage, MessageBubbleProps } from '../types';
 import { formatTime } from '@/utils/date';
 import { MessageReactions } from './MessageReactions';
 import { ReactionPicker } from './ReactionPicker';
+import { MessageContextMenu } from './MessageContextMenu';
 
 const MAX_WIDTH = '75%';
 
@@ -23,11 +25,18 @@ export function MessageBubble({
   showTimestamp = true,
   onLongPress,
   onRetry,
+  onEdit,
+  onDelete,
+  onCopy,
+  onReply,
+  onForward,
 }: MessageBubbleProps) {
   const isFailed = message.isFailed;
   const isSending = message.isSending;
   const isPending = message.status === 'PENDING' || message.status === 'RELAYED';
   const [showReactionPicker, setShowReactionPicker] = useState(false);
+  const [showContextMenu, setShowContextMenu] = useState(false);
+  const [contextMenuPosition, setContextMenuPosition] = useState({ x: 0, y: 0 });
 
   const handleRetry = () => {
     if (isFailed && onRetry) {
@@ -35,11 +44,16 @@ export function MessageBubble({
     }
   };
 
-  const handleLongPress = () => {
+  const handleLongPress = (event: any) => {
     if (onLongPress) {
       onLongPress(message);
     } else {
-      setShowReactionPicker(true);
+      // Show context menu at touch position
+      setContextMenuPosition({
+        x: event.nativeEvent.locationX,
+        y: event.nativeEvent.locationY,
+      });
+      setShowContextMenu(true);
     }
   };
 
@@ -49,6 +63,39 @@ export function MessageBubble({
 
   const handleRemoveReaction = (messageId: string, emoji: string) => {
     setShowReactionPicker(false);
+  };
+
+  const handleEdit = () => {
+    setShowContextMenu(false);
+    if (onEdit) onEdit(message);
+  };
+
+  const handleDelete = () => {
+    setShowContextMenu(false);
+    Alert.alert(
+      'Delete Message',
+      'Are you sure you want to delete this message?',
+      [
+        { text: 'Cancel', style: 'cancel' },
+        { text: 'Delete', style: 'destructive', onPress: () => onDelete?.(message) },
+      ]
+    );
+  };
+
+  const handleCopy = () => {
+    setShowContextMenu(false);
+    // Copy to clipboard would go here
+    // Clipboard.setString(message.content || '');
+  };
+
+  const handleReply = () => {
+    setShowContextMenu(false);
+    if (onReply) onReply(message);
+  };
+
+  const handleForward = () => {
+    setShowContextMenu(false);
+    if (onForward) onForward(message);
   };
 
   const bubbleStyle = [
@@ -141,6 +188,20 @@ export function MessageBubble({
         isVisible={showReactionPicker}
         onEmojiSelect={() => setShowReactionPicker(false)}
         onClose={() => setShowReactionPicker(false)}
+      />
+      
+      {/* Context Menu */}
+      <MessageContextMenu
+        message={message}
+        isOwn={isOwn}
+        onEdit={handleEdit}
+        onDelete={handleDelete}
+        onCopy={handleCopy}
+        onReply={handleReply}
+        onForward={handleForward}
+        visible={showContextMenu}
+        anchorPosition={contextMenuPosition}
+        onClose={() => setShowContextMenu(false)}
       />
     </View>
   );

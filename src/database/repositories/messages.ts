@@ -183,6 +183,18 @@ export class MessagesRepository {
     );
   }
 
+  async edit(id: string, newContent: string, editedBy: string): Promise<void> {
+    const db = await getDatabase();
+    const now = Date.now();
+    await db.runAsync(
+      `UPDATE messages SET content = ?, edited_at = ?, edited_by = ?, sync_status = 'PENDING' WHERE id = ?`,
+      newContent,
+      now,
+      editedBy,
+      id
+    );
+  }
+
   async getUnreadCount(conversationId: string): Promise<number> {
     const db = await getDatabase();
     const result = await db.getFirstAsync<{ count: number }>(

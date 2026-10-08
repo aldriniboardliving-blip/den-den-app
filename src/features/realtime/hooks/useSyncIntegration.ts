@@ -44,6 +44,7 @@ export function useSyncIntegration() {
           deliveredAt: Date.now(),
           readAt: null,
           editedAt: null,
+          editedBy: null,
           deletedAt: null,
           syncStatus: 'SYNCED',
           serverMessageId: event.payload?.serverMessageId,

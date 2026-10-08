@@ -107,6 +107,7 @@ export interface Message {
   deliveredAt: number | null;
   readAt: number | null;
   editedAt: number | null;
+  editedBy: string | null;
   deletedAt: number | null;
   syncStatus: 'PENDING' | 'SYNCED' | 'CONFLICT';
   serverMessageId: string | null;

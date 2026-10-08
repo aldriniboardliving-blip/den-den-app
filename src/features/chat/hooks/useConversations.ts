@@ -92,7 +92,7 @@ export function useMessages(conversationId: string | null) {
     await loadMessages(page + 1, true);
   }, [loading, hasMore, page, loadMessages]);
 
-  const sendMessage = useCallback(async (content: string, contentType: ChatMessage['contentType'] = 'TEXT') => {
+  const sendMessage = useCallback(async (content: string, contentType: ChatMessage['contentType'] = 'TEXT', attachments?: string[], replyToMessageId?: string) => {
     if (!conversationId || !user) return;
     
     const messageId = `msg-${Date.now()}-${Math.random().toString(36).slice(2, 9)}`;
@@ -115,6 +115,7 @@ export function useMessages(conversationId: string | null) {
       deliveredAt: null,
       readAt: null,
       editedAt: null,
+      editedBy: null,
       deletedAt: null,
       syncStatus: 'PENDING',
       serverMessageId: null,
@@ -122,6 +123,7 @@ export function useMessages(conversationId: string | null) {
       syncAttemptCount: 0,
       isOptimistic: true,
       isSending: true,
+      replyToMessageId,
     };
 
     addMessage(optimisticMessage);

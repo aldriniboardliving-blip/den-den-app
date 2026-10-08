@@ -13,12 +13,15 @@ import {
 } from 'react-native';
 import { MessageInputProps } from '../types';
 import { Ionicons } from '@expo/vector-icons';
+import { ChatMessage } from '../types';
 
 export function MessageInput({
   conversationId,
   onSend,
   disabled = false,
   placeholder = 'Message',
+  replyTo,
+  onCancelReply,
 }: MessageInputProps) {
   const [text, setText] = useState('');
   const [height, setHeight] = useState(44);
@@ -28,10 +31,11 @@ export function MessageInput({
   const handleSend = () => {
     const trimmed = text.trim();
     if (!trimmed && attachments.length === 0 || disabled) return;
-    onSend(trimmed, attachments);
+    onSend(trimmed, attachments, replyTo?.id);
     setText('');
     setAttachments([]);
     setHeight(44);
+    onCancelReply?.();
     textInputRef.current?.blur();
   };
 
@@ -83,8 +87,25 @@ export function MessageInput({
     setAttachments(prev => prev.filter((_, i) => i !== index));
   };
 
+  const handleCancelReply = () => {
+    onCancelReply?.();
+  };
+
   return (
     <View style={[styles.container, { height }]}>
+      {replyTo && (
+        <View style={styles.replyPreview}>
+          <TouchableOpacity style={styles.replyCloseButton} onPress={handleCancelReply} activeOpacity={0.7}>
+            <Ionicons name="close" size={20} color="#8b949e" />
+          </TouchableOpacity>
+          <View style={styles.replyContent}>
+            <Text style={styles.replyLabel}>Replying to</Text>
+            <Text style={styles.replyPreviewText} numberOfLines={2}>
+              {replyTo.content || (replyTo.contentType === 'IMAGE' ? '📷 Photo' : 'Attachment')}
+            </Text>
+          </View>
+        </View>
+      )}
       {attachments.length > 0 && (
         <View style={styles.attachmentsPreview}>
           {attachments.map((uri, index) => (
@@ -225,5 +246,32 @@ const styles = StyleSheet.create({
   attachButton: {
     padding: 10,
     marginLeft: 8,
+  },
+replyPreview: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    backgroundColor: '#1a1a1a',
+    borderBottomWidth: 1,
+    borderBottomColor: '#3d3a39',
+  },
+  replyCloseButton: {
+    padding: 4,
+  },
+  replyContent: {
+    flex: 1,
+    marginLeft: 8,
+    minWidth: 0,
+  },
+  replyLabel: {
+    fontSize: 11,
+    fontWeight: '600',
+    color: '#00d992',
+    marginBottom: 2,
+  },
+  replyPreviewText: {
+    fontSize: 13,
+    color: '#f2f2f2',
   },
 });

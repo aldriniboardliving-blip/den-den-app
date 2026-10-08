@@ -129,6 +129,7 @@ export const useChatStore = create<ChatState>((set, get) => ({
       deliveredAt: null,
       readAt: null,
       editedAt: null,
+      editedBy: null,
       deletedAt: null,
       syncStatus: 'PENDING',
       serverMessageId: null,
