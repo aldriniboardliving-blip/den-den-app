@@ -133,6 +133,8 @@ export function useSyncIntegration() {
           isArchived: false,
           isPinned: false,
           muteUntil: null,
+          disappearingMessagesTimer: 0,
+          disappearingMessagesStartAt: null,
           unreadCount: 0,
           lastMessageId: null,
           lastMessageAt: null,

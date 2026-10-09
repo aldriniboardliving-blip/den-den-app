@@ -3,6 +3,7 @@ export * from './connection';
 export * from './schema';
 export * from './repositories/messages';
 export * from './repositories/conversations';
+export * from './repositories/conversationMembers';
 export * from './repositories/contacts';
 export * from './repositories/devices';
 export * from './repositories/syncQueue';

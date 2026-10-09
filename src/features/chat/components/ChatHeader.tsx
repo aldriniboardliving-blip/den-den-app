@@ -3,6 +3,15 @@ import React from 'react';
 import { View, Text, StyleSheet, TouchableOpacity, Image } from 'react-native';
 import { ChatHeaderProps } from '../types';
 import { Avatar } from './Avatar';
+import { Ionicons } from '@expo/vector-icons';
+import { DisappearingTimerDuration } from '@/types';
+
+const TIMER_LABELS: Record<number, string> = {
+  0: 'Off',
+  86400000: '24h',
+  604800000: '7d',
+  7776000000: '90d',
+};
 
 export function ChatHeader({
   title,
@@ -10,7 +19,10 @@ export function ChatHeader({
   avatar,
   onPress,
   actions,
-}: ChatHeaderProps) {
+  disappearingMessagesTimer,
+}: ChatHeaderProps & { disappearingMessagesTimer?: DisappearingTimerDuration }) {
+  const timerLabel = disappearingMessagesTimer ? TIMER_LABELS[disappearingMessagesTimer] : null;
+
   return (
     <View style={styles.container}>
       <TouchableOpacity
@@ -26,6 +38,12 @@ export function ChatHeader({
         <View style={styles.titleContainer}>
           <Text style={styles.title}>{title}</Text>
           {subtitle && <Text style={styles.subtitle}>{subtitle}</Text>}
+          {disappearingMessagesTimer && disappearingMessagesTimer > 0 && (
+            <View style={styles.timerBadge}>
+              <Ionicons name="timer-outline" size={12} color="#ff9f0a" />
+              <Text style={styles.timerText}>{TIMER_LABELS[disappearingMessagesTimer]}</Text>
+            </View>
+          )}
         </View>
       </TouchableOpacity>
       {actions && <View style={styles.actions}>{actions}</View>}
@@ -65,6 +83,23 @@ const styles = StyleSheet.create({
     fontSize: 13,
     color: '#8b949e',
     marginTop: 1,
+  },
+  timerBadge: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+    marginTop: 4,
+    paddingHorizontal: 6,
+    paddingVertical: 2,
+    backgroundColor: 'rgba(255, 159, 10, 0.15)',
+    borderRadius: 8,
+    borderWidth: 1,
+    borderColor: '#ff9f0a',
+  },
+  timerText: {
+    fontSize: 11,
+    fontWeight: '600',
+    color: '#ff9f0a',
   },
   actions: {
     flexDirection: 'row',

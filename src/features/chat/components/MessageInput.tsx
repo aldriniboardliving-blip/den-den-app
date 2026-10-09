@@ -11,6 +11,8 @@ import {
   Alert,
   Image,
 } from 'react-native';
+import * as ImagePicker from 'expo-image-picker';
+import * as DocumentPicker from 'expo-document-picker';
 import { MessageInputProps } from '../types';
 import { Ionicons } from '@expo/vector-icons';
 import { ChatMessage } from '../types';
@@ -68,19 +70,66 @@ export function MessageInput({
     );
   };
 
-  const pickImage = () => {
-    // TODO: Implement with expo-image-picker
-    Alert.alert('Not implemented', 'Photo library picker coming soon');
+  const pickImage = async () => {
+    try {
+      const result = await ImagePicker.launchImageLibraryAsync({
+        mediaTypes: ImagePicker.MediaTypeOptions.Images,
+        allowsEditing: true,
+        aspect: [4, 3],
+        quality: 0.8,
+      });
+
+      if (!result.canceled && result.assets && result.assets.length > 0) {
+        const asset = result.assets[0];
+        if (asset) setAttachments(prev => [...prev, asset.uri]);
+      }
+    } catch (error) {
+      console.error('Error picking image:', error);
+      Alert.alert('Error', 'Failed to pick image');
+    }
   };
 
-  const takePhoto = () => {
-    // TODO: Implement with expo-camera/expo-image-picker
-    Alert.alert('Not implemented', 'Camera coming soon');
+  const takePhoto = async () => {
+    try {
+      const permission = await ImagePicker.requestCameraPermissionsAsync();
+      if (!permission.granted) {
+        Alert.alert('Permission required', 'Camera permission is needed to take photos');
+        return;
+      }
+
+      const result = await ImagePicker.launchCameraAsync({
+        allowsEditing: true,
+        aspect: [4, 3],
+        quality: 0.8,
+      });
+
+      if (!result.canceled && result.assets && result.assets.length > 0) {
+        const asset = result.assets[0];
+        if (asset) setAttachments(prev => [...prev, asset.uri]);
+      }
+    } catch (error) {
+      console.error('Error taking photo:', error);
+      Alert.alert('Error', 'Failed to take photo');
+    }
   };
 
-  const pickFile = () => {
-    // TODO: Implement with expo-document-picker
-    Alert.alert('Not implemented', 'File picker coming soon');
+  const pickFile = async () => {
+    try {
+      const result = await DocumentPicker.getDocumentAsync({
+        type: '*/*',
+        copyToCacheDirectory: true,
+      });
+
+      if (result.assets && result.assets.length > 0) {
+        const asset = result.assets[0];
+        if (asset) setAttachments(prev => [...prev, asset.uri]);
+      }
+    } catch (error) {
+      if ((error as any).code !== 'E_DOCUMENT_PICKER_CANCELLED') {
+        console.error('Error picking file:', error);
+        Alert.alert('Error', 'Failed to pick file');
+      }
+    }
   };
 
   const removeAttachment = (index: number) => {

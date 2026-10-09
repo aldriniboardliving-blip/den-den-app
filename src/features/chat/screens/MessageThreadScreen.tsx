@@ -102,6 +102,10 @@ export default function MessageThreadScreen() {
     }
   }, [hasMore, loading, loadMore]);
 
+  const handleForward = React.useCallback((message: ChatMessage) => {
+    router.push(`/chat/forward?messageId=${message.id}&conversationId=${conversationId}`);
+  }, [conversationId]);
+
   const renderItem = ({ item }: { item: ChatMessage }) => {
     const isOwn = item.senderAccountId === user?.accountId;
     return (
@@ -113,6 +117,7 @@ export default function MessageThreadScreen() {
         onLongPress={() => {}}
         onRetry={handleRetry}
         onReply={handleReply}
+        onForward={handleForward}
       />
     );
   };
@@ -141,6 +146,12 @@ export default function MessageThreadScreen() {
     return conversation.contact?.avatarUrl ?? undefined;
   };
 
+  const handleGroupInfoPress = useCallback(() => {
+    if (conversation?.type === 'GROUP') {
+      router.push(`/chat/group-info/${conversationId}`);
+    }
+  }, [conversation, conversationId]);
+
   if (!conversationId) {
     return (
       <SafeAreaView style={styles.container}>
@@ -158,16 +169,34 @@ export default function MessageThreadScreen() {
           title={getDisplayName()}
           subtitle={getSubtitle()}
           avatar={getAvatar()}
-          onPress={() => {}}
+          onPress={handleGroupInfoPress}
           actions={
-            <TouchableOpacity
-              style={styles.searchButton}
-              onPress={() => router.push(`/chat/search?conversationId=${conversationId}`)}
-              activeOpacity={0.7}
-            >
-              <Ionicons name="search" size={24} color="#f2f2f2" />
-            </TouchableOpacity>
-          }
+            conversation?.type === 'GROUP' ? (
+              <>
+                <TouchableOpacity
+                  style={styles.searchButton}
+                  onPress={() => router.push(`/chat/search?conversationId=${conversationId}`)}
+                  activeOpacity={0.7}
+                >
+                  <Ionicons name="search" size={24} color="#f2f2f2" />
+                </TouchableOpacity>
+                <TouchableOpacity
+                  style={styles.infoButton}
+                  onPress={handleGroupInfoPress}
+                  activeOpacity={0.7}
+                >
+                  <Ionicons name="information-circle-outline" size={24} color="#f2f2f2" />
+                </TouchableOpacity>
+              </>
+            ) : (
+              <TouchableOpacity
+                style={styles.searchButton}
+                onPress={() => router.push(`/chat/search?conversationId=${conversationId}`)}
+                activeOpacity={0.7}
+              >
+                <Ionicons name="search" size={24} color="#f2f2f2" />
+              </TouchableOpacity>
+            )}
         />
       </View>
       
@@ -239,6 +268,9 @@ const styles = StyleSheet.create({
     color: '#8b949e',
   },
   searchButton: {
+    padding: 8,
+  },
+  infoButton: {
     padding: 8,
   },
 });

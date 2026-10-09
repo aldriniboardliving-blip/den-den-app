@@ -50,6 +50,8 @@ export interface KeyBundle {
   onetimePrekeyId: number | null;
 }
 
+export type DisappearingTimerDuration = 0 | 86400000 | 604800000 | 7776000000; // 0 = off, 24h, 7d, 90d in ms
+
 export interface Conversation {
   id: string;
   userId: string;
@@ -61,6 +63,8 @@ export interface Conversation {
   isArchived: boolean;
   isPinned: boolean;
   muteUntil: number | null;
+  disappearingMessagesTimer: DisappearingTimerDuration;
+  disappearingMessagesStartAt: number | null;
   lastMessageId: string | null;
   lastMessageAt: number | null;
   lastMessageSenderId: string | null;
@@ -80,9 +84,13 @@ export interface ConversationMember {
   accountId: string;
   role: 'ADMIN' | 'MEMBER';
   senderKeyPublic: string | null;
+  senderKeyPrivate: string | null;
   joinedAt: number;
   leftAt: number | null;
   isActive: boolean;
+  syncStatus: 'SYNCED' | 'PENDING' | 'CONFLICT';
+  lastSyncedAt: number | null;
+  serverVersion: number;
 }
 
 export type MessageStatus =

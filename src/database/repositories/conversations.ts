@@ -33,6 +33,25 @@ export class ConversationsRepository {
     return db.getAllAsync<Conversation>(sql, userId);
   }
 
+  async getAllWithDisappearingTimer(userId: string): Promise<Conversation[]> {
+    const db = await getDatabase();
+
+    return db.getAllAsync<Conversation>(
+      `SELECT * FROM conversations
+       WHERE user_id = ? AND deleted_at IS NULL AND disappearing_messages_timer > 0`,
+      userId
+    );
+  }
+
+  async getAllWithDisappearingTimerGlobal(): Promise<Conversation[]> {
+    const db = await getDatabase();
+
+    return db.getAllAsync<Conversation>(
+      `SELECT * FROM conversations
+       WHERE deleted_at IS NULL AND disappearing_messages_timer > 0`
+    );
+  }
+
   async getById(id: string): Promise<Conversation | null> {
     const db = await getDatabase();
     return db.getFirstAsync<Conversation>('SELECT * FROM conversations WHERE id = ? AND deleted_at IS NULL', id);
@@ -48,8 +67,9 @@ export class ConversationsRepository {
         id, user_id, type, title, avatar_url, created_by,
         admin_device_ids, is_archived, is_pinned, mute_until,
         unread_count, sync_status, last_synced_at, server_version,
+        disappearing_messages_timer, disappearing_messages_start_at,
         created_at, updated_at
-      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
       id,
       conversation.userId,
       conversation.type,
@@ -64,6 +84,8 @@ export class ConversationsRepository {
       conversation.syncStatus,
       conversation.lastSyncedAt ?? 0,
       conversation.serverVersion,
+      conversation.disappearingMessagesTimer ?? 0,
+      conversation.disappearingMessagesStartAt ?? null,
       now,
       now
     );
@@ -82,6 +104,8 @@ export class ConversationsRepository {
     if (updates.isArchived !== undefined) { fields.push('is_archived = ?'); params.push(updates.isArchived ? 1 : 0); }
     if (updates.isPinned !== undefined) { fields.push('is_pinned = ?'); params.push(updates.isPinned ? 1 : 0); }
     if (updates.muteUntil !== undefined) { fields.push('mute_until = ?'); params.push(updates.muteUntil ?? 0); }
+    if (updates.disappearingMessagesTimer !== undefined) { fields.push('disappearing_messages_timer = ?'); params.push(updates.disappearingMessagesTimer); }
+    if (updates.disappearingMessagesStartAt !== undefined) { fields.push('disappearing_messages_start_at = ?'); params.push(updates.disappearingMessagesStartAt ?? 0); }
     if (updates.unreadCount !== undefined) { fields.push('unread_count = ?'); params.push(updates.unreadCount); }
     if (updates.lastMessageId !== undefined) { fields.push('last_message_id = ?'); params.push(updates.lastMessageId ?? ''); }
     if (updates.lastMessageAt !== undefined) { fields.push('last_message_at = ?'); params.push(updates.lastMessageAt ?? 0); }

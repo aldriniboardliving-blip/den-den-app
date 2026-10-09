@@ -44,7 +44,7 @@ export default function SettingsScreen() {
           icon="shield-outline"
           title="Privacy & Security"
           subtitle="Block contacts, safety numbers, screen lock"
-          onPress={() => {}}
+          onPress={() => router.push('/settings/privacy')}
         />
         <SettingsItem
           icon="notifications-outline"

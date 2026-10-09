@@ -1,7 +1,9 @@
 // src/features/chat/types.ts
-import { Message, Conversation, Contact, ConversationMember } from '@/types';
+import { Message, Conversation, Contact, ConversationMember, MessageRecipient } from '@/types';
 
 export type ReactionEmoji = '👍' | '❤️' | '😂' | '😮' | '😢' | '🎉' | '🙏' | '👎';
+
+export type { ConversationMember, MessageRecipient };
 
 export interface ChatMessage extends Message {
   isOptimistic?: boolean;
