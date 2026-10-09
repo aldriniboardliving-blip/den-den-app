@@ -15,6 +15,13 @@
       "when": 1791440337058,
       "tag": "0001_fearless_karma",
       "breakpoints": true
+    },
+    {
+      "idx": 2,
+      "version": "7",
+      "when": 1791534320330,
+      "tag": "0002_abandoned_the_enforcers",
+      "breakpoints": true
     }
   ]
 }

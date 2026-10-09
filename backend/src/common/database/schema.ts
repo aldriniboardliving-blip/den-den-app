@@ -285,12 +285,14 @@ export const attachments = pgTable(
     filename: varchar('filename', { length: 255 }).notNull(),
     mimeType: varchar('mime_type', { length: 100 }).notNull(),
     sizeBytes: integer('size_bytes').notNull(),
-    encryptedKey: varchar('encrypted_key', { length: 88 }).notNull(), // base64 encrypted media key
-    nonce: varchar('nonce', { length: 24 }).notNull(), // base64
-    storageUrl: text('storage_url'), // S3 presigned URL or object key
+    encryptedKey: varchar('encrypted_key', { length: 88 }).notNull(),
+    nonce: varchar('nonce', { length: 24 }).notNull(),
+    storageUrl: text('storage_url'),
     storageProvider: varchar('storage_provider', { length: 20 }).default('s3'),
-    uploadStatus: varchar('upload_status', { length: 20 }).default('PENDING'), // PENDING | UPLOADING | COMPLETED | FAILED
-    expiresAt: timestamp('expires_at', { withTimezone: true }).notNull(), // Presigned URL expiry
+    uploadStatus: varchar('upload_status', { length: 20 }).default('PENDING'),
+    expiresAt: timestamp('expires_at', { withTimezone: true }).notNull(),
+    uploadedAt: timestamp('uploaded_at', { withTimezone: true }),
+    metadata: jsonb('metadata'),
     createdAt: timestamp('created_at', { withTimezone: true }).defaultNow().notNull(),
     updatedAt: timestamp('updated_at', { withTimezone: true }).defaultNow().notNull(),
   },

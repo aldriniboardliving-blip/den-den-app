@@ -1,6 +1,6 @@
 import { Controller, Post, Get, Delete, Param, Body, Query } from '@nestjs/common';
 import { ApiTags, ApiOperation, ApiResponse, ApiBearerAuth } from '@nestjs/swagger';
-import { AttachmentsService } from './attachments.service';
+import { AttachmentsService, UploadInitiationResult } from './attachments.service';
 import { CurrentUser, CurrentDevice } from '../common/decorators/current-user.decorator';
 import { JwtAuthGuard } from '../common/guards/jwt-auth.guard';
 import { UseGuards } from '@nestjs/common';
@@ -13,6 +13,8 @@ const createUploadSchema = z.object({
   sizeBytes: z.number().int().positive().max(100 * 1024 * 1024),
   encryptedKey: z.string().length(88),
   nonce: z.string().length(24),
+  messageId: z.string().uuid().optional(),
+  conversationId: z.string().uuid().optional(),
 });
 
 type CreateUploadDto = z.infer<typeof createUploadSchema>;
@@ -25,23 +27,36 @@ export class AttachmentsController {
   constructor(private attachments: AttachmentsService) {}
 
   @Post('upload-url')
-  @ApiOperation({ summary: 'Get presigned URL for attachment upload' })
+  @ApiOperation({ summary: 'Initiate attachment upload (get presigned URL)' })
   @ApiResponse({ status: 201, description: 'Upload URL generated' })
-  async createUploadUrl(
+  async initiateUpload(
     @CurrentDevice('id') deviceId: string,
+    @CurrentUser('id') userId: string,
     @Body(new ZodValidationPipe(createUploadSchema)) dto: CreateUploadDto,
-  ) {
-    return this.attachments.createUploadUrl(deviceId, dto);
+  ): Promise<UploadInitiationResult> {
+    return this.attachments.initiateUpload(deviceId, dto, userId);
   }
 
   @Post(':id/confirm')
-  @ApiOperation({ summary: 'Confirm attachment upload completed' })
+  @ApiOperation({ summary: 'Confirm attachment upload completed (client-side)' })
   @ApiResponse({ status: 200, description: 'Upload confirmed' })
   async confirmUpload(
     @CurrentDevice('id') deviceId: string,
+    @CurrentUser('id') userId: string,
     @Param('id') attachmentId: string,
   ) {
-    return this.attachments.confirmUpload(attachmentId, deviceId);
+    return this.attachments.confirmUpload(attachmentId, deviceId, userId);
+  }
+
+  @Post(':id/process')
+  @ApiOperation({ summary: 'Process upload completion (generate thumbnail, etc.)' })
+  @ApiResponse({ status: 200, description: 'Upload processed' })
+  async processUpload(
+    @CurrentDevice('id') deviceId: string,
+    @CurrentUser('id') userId: string,
+    @Param('id') attachmentId: string,
+  ) {
+    return this.attachments.processUploadCompletion(attachmentId, deviceId, userId);
   }
 
   @Get(':id/download-url')
@@ -56,6 +71,24 @@ export class AttachmentsController {
   @ApiResponse({ status: 200, description: 'Message attachments' })
   async getMessageAttachments(@Param('messageId') messageId: string) {
     return this.attachments.getMessageAttachments(messageId);
+  }
+
+  @Get('pending')
+  @ApiOperation({ summary: 'Get pending uploads for current device' })
+  @ApiResponse({ status: 200, description: 'Pending uploads' })
+  async getPendingUploads(@CurrentDevice('id') deviceId: string) {
+    return this.attachments.getPendingUploads(deviceId);
+  }
+
+  @Post(':id/retry')
+  @ApiOperation({ summary: 'Retry failed upload' })
+  @ApiResponse({ status: 200, description: 'Upload retried' })
+  async retryUpload(
+    @CurrentDevice('id') deviceId: string,
+    @CurrentUser('id') userId: string,
+    @Param('id') attachmentId: string,
+  ): Promise<UploadInitiationResult> {
+    return this.attachments.retryFailedUpload(attachmentId, deviceId, userId);
   }
 
   @Delete(':id')
