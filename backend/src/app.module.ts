@@ -12,6 +12,7 @@ import { NotificationsModule } from './notifications/notifications.module';
 import { HealthModule } from './health/health.module';
 import { RealtimeModule } from './realtime/realtime.module';
 import { SchedulerModule } from './scheduler/scheduler.module';
+import { MultiDeviceModule } from './multidevice/multidevice.module';
 import { DatabaseModule } from './common/database/database.module';
 
 @Module({
@@ -33,6 +34,7 @@ import { DatabaseModule } from './common/database/database.module';
     HealthModule,
     RealtimeModule,
     SchedulerModule,
+    MultiDeviceModule,
   ],
 })
 export class AppModule {}
