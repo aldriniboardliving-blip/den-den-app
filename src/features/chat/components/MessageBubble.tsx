@@ -15,6 +15,7 @@ import { formatTime } from '@/utils/date';
 import { MessageReactions } from './MessageReactions';
 import { ReactionPicker } from './ReactionPicker';
 import { MessageContextMenu } from './MessageContextMenu';
+import { MessageAttachments } from '@/features/attachments/components/MessageAttachments';
 
 const MAX_WIDTH = '75%';
 
@@ -163,6 +164,13 @@ export function MessageBubble({
             <Text style={textStyle}>{message.content}</Text>
           )}
         </Pressable>
+        {/* Attachments */}
+        {(message.attachments && message.attachments.length > 0) && (
+          <MessageAttachments
+            attachments={message.attachments}
+            maxInline={4}
+          />
+        )}
         {isOwn && showTimestamp && (
           <View style={styles.statusRow}>
             <Text style={styles.timestamp}>{formatTime(message.createdAt)}</Text>

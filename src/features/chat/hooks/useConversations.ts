@@ -10,6 +10,7 @@ import { Contact } from '@/types';
 import { api } from '@/api/client';
 import { MessageEncryption } from '@/crypto';
 import { devicesRepository } from '@/database/repositories/devices';
+import { useAttachments } from '@/features/attachments/hooks/useAttachments';
 
 export function useConversations() {
   const { conversations, setConversations, isLoading, setLoading } = useChatStore();
@@ -58,11 +59,26 @@ export function useConversations() {
 
 export function useMessages(conversationId: string | null) {
   const { messages, setMessages, addMessage, updateMessage, removeMessage } = useChatStore();
-  const { user } = useAuthStore();
+  const { user, device } = useAuthStore();
   const [loading, setLoading] = useState(false);
   const [hasMore, setHasMore] = useState(true);
   const [page, setPage] = useState(0);
   const PAGE_SIZE = 50;
+
+  // Use attachments hook for upload handling
+  const {
+    uploadFile,
+    uploads,
+    cancelUpload,
+    retryUpload,
+  } = useAttachments({
+    onComplete: (attachment) => {
+      console.log('Attachment upload complete:', attachment.id);
+    },
+    onError: (attachmentId, error) => {
+      console.error('Attachment upload failed:', attachmentId, error);
+    },
+  });
 
   const conversationMessages = conversationId
     ? (messages.get(conversationId) || []) as ChatMessage[]
@@ -95,20 +111,46 @@ export function useMessages(conversationId: string | null) {
     await loadMessages(page + 1, true);
   }, [loading, hasMore, page, loadMessages]);
 
-  const sendMessage = useCallback(async (content: string, contentType: ChatMessage['contentType'] = 'TEXT', attachments?: string[], replyToMessageId?: string) => {
-    if (!conversationId || !user) return;
+  const sendMessage = useCallback(async (
+    content: string, 
+    contentType: ChatMessage['contentType'] = 'TEXT', 
+    attachmentUris?: string[], 
+    replyToMessageId?: string
+  ) => {
+    if (!conversationId || !user || !device) return;
     
     const messageId = `msg-${Date.now()}-${Math.random().toString(36).slice(2, 9)}`;
     const now = Date.now();
 
+    // Upload attachments first if any
+    let uploadedAttachments: any[] = [];
+    if (attachmentUris && attachmentUris.length > 0) {
+      try {
+        for (const uri of attachmentUris) {
+          // Convert URI to File object
+          const response = await fetch(uri);
+          const blob = await response.blob();
+          const file = new File([blob], uri.split('/').pop() || 'attachment', { type: blob.type });
+          
+          const uploaded = await uploadFile(file, conversationId);
+          if (uploaded) {
+            uploadedAttachments.push(uploaded);
+          }
+        }
+      } catch (error) {
+        console.error('Failed to upload attachments:', error);
+        // Continue with message sending even if attachments fail
+      }
+    }
+
     const optimisticMessage: ChatMessage = {
       id: messageId,
       conversationId,
-      senderDeviceId: 'local-device',
+      senderDeviceId: device.id,
       senderAccountId: user.accountId,
       content,
       contentEncrypted: null,
-      contentType,
+      contentType: contentType,
       encryptionAlgorithm: null,
       nonce: null,
       senderKeyId: null,
@@ -127,6 +169,7 @@ export function useMessages(conversationId: string | null) {
       isOptimistic: true,
       isSending: true,
       replyToMessageId,
+      attachments: uploadedAttachments,
     };
 
     addMessage(optimisticMessage);
@@ -193,9 +236,10 @@ export function useMessages(conversationId: string | null) {
       await api.sendMessage({
         conversationId,
         clientMessageId: messageId,
-        type: 'TEXT',
+        type: contentType,
         content: null, // Don't send plaintext
         envelopes,
+        attachmentIds: uploadedAttachments.map(a => a.id),
       });
 
       // Update local message status
@@ -203,14 +247,15 @@ export function useMessages(conversationId: string | null) {
         status: 'RELAYED',
         sentAt: Date.now(),
         syncStatus: 'SYNCED',
-      });
+        attachments: uploadedAttachments,
+      } as any);
     } catch (error) {
       updateMessage(conversationId, messageId, {
         status: 'FAILED',
       });
       throw error;
     }
-  }, [conversationId, user, addMessage, updateMessage]);
+  }, [conversationId, user, device, addMessage, updateMessage, uploadFile]);
 
   const retryMessage = useCallback(async (messageId: string) => {
     if (!conversationId) return;

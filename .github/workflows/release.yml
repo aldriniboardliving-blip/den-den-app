@@ -37,6 +37,7 @@ jobs:
           npx tsc --noEmit
           npx expo lint
           npm run test:unit -- --run
+          cd backend && npm ci && npm run build && npm run test
 
       - name: Configure Git
         run: |

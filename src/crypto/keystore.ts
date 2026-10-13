@@ -6,6 +6,7 @@
 
 import { Platform } from 'react-native';
 import * as Sodium from 'react-native-libsodium';
+import { getDatabase } from '@/database/connection';
 import { KeyPair, SecureKeyPair, SecureKeyRef, IdentityKeys, OnetimePreKey } from './types';
 
 export class Keystore {
@@ -97,6 +98,195 @@ export class Keystore {
   }> {
     // Implemented in database/repositories/devices.ts
     throw new Error('Not implemented');
+  }
+
+  // Save identity keys to SQLite (for Signal Protocol store)
+  async saveIdentityKeys(userId: string, keys: IdentityKeys): Promise<void> {
+    const db = await getDatabase();
+    
+    await db.withTransactionAsync(async () => {
+      // Save identity key pair
+      await db.runAsync(
+        `INSERT OR REPLACE INTO encryption_keys 
+         (id, device_id, key_type, key_id, public_key, private_key_encrypted, created_at, is_active)
+         VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
+        [
+          `identity_${userId}`,
+          userId,
+          'IDENTITY',
+          0,
+          this.uint8ArrayToBase64(keys.identityKeyPair.publicKey),
+          this.uint8ArrayToBase64(keys.identityKeyPair.privateKey),
+          Date.now(),
+          1,
+        ]
+      );
+
+      // Save signed prekey
+      await db.runAsync(
+        `INSERT OR REPLACE INTO encryption_keys 
+         (id, device_id, key_type, key_id, public_key, private_key_encrypted, created_at, is_active)
+         VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
+        [
+          `signed_prekey_${userId}_${keys.signedPreKeyId}`,
+          userId,
+          'SIGNED_PREKEY',
+          keys.signedPreKeyId,
+          this.uint8ArrayToBase64(keys.signedPreKeyPair.publicKey),
+          this.uint8ArrayToBase64(keys.signedPreKeyPair.privateKey),
+          keys.signedPreKeyCreatedAt,
+          1,
+        ]
+      );
+
+      // Save onetime prekeys
+      for (const otpk of keys.onetimePreKeys) {
+        await db.runAsync(
+          `INSERT OR REPLACE INTO encryption_keys 
+           (id, device_id, key_type, key_id, public_key, private_key_encrypted, created_at, used_at, is_active)
+           VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+          [
+            `onetime_prekey_${userId}_${otpk.id}`,
+            userId,
+            'ONETIME_PREKEY',
+            otpk.id,
+            this.uint8ArrayToBase64(otpk.keyPair.publicKey),
+            this.uint8ArrayToBase64(otpk.keyPair.privateKey),
+            Date.now(),
+            otpk.usedAt || null,
+            otpk.usedAt ? 0 : 1,
+          ]
+        );
+      }
+
+      // Save signed prekey signature and metadata
+      await db.runAsync(
+        `INSERT OR REPLACE INTO settings (id, user_id, key, value)
+         VALUES (?, ?, ?, ?)`,
+        [
+          `spk_signature_${userId}`,
+          userId,
+          'signed_prekey_signature',
+          this.uint8ArrayToBase64(keys.signedPreKeySignature),
+        ]
+      );
+      
+      await db.runAsync(
+        `INSERT OR REPLACE INTO settings (id, user_id, key, value)
+         VALUES (?, ?, ?, ?)`,
+        [
+          `spk_id_${userId}`,
+          userId,
+          'signed_prekey_id',
+          keys.signedPreKeyId.toString(),
+        ]
+      );
+      
+      await db.runAsync(
+        `INSERT OR REPLACE INTO settings (id, user_id, key, value)
+         VALUES (?, ?, ?, ?)`,
+        [
+          `spk_created_${userId}`,
+          userId,
+          'signed_prekey_created_at',
+          keys.signedPreKeyCreatedAt.toString(),
+        ]
+      );
+    });
+  }
+
+  // Load identity keys from SQLite
+  async getIdentityKeys(userId: string): Promise<IdentityKeys | null> {
+    const db = await getDatabase();
+    
+    // Load identity key pair
+    const identityKeyResult = await db.getFirstAsync<{ public_key: string; private_key_encrypted: string }>(
+      `SELECT public_key, private_key_encrypted FROM encryption_keys 
+       WHERE device_id = ? AND key_type = 'IDENTITY' AND is_active = 1`,
+      [userId]
+    );
+    
+    if (!identityKeyResult) return null;
+
+    // Load signed prekey
+    const spkResult = await db.getFirstAsync<{ key_id: number; public_key: string; private_key_encrypted: string }>(
+      `SELECT key_id, public_key, private_key_encrypted FROM encryption_keys 
+       WHERE device_id = ? AND key_type = 'SIGNED_PREKEY' AND is_active = 1
+       ORDER BY key_id DESC LIMIT 1`,
+      [userId]
+    );
+    
+    if (!spkResult) return null;
+
+    // Load signature
+    const sigResult = await db.getFirstAsync<{ value: string }>(
+      `SELECT value FROM settings WHERE user_id = ? AND key = 'signed_prekey_signature'`,
+      [userId]
+    );
+    
+    if (!sigResult) return null;
+
+    // Load signed prekey ID
+    const spkIdResult = await db.getFirstAsync<{ value: string }>(
+      `SELECT value FROM settings WHERE user_id = ? AND key = 'signed_prekey_id'`,
+      [userId]
+    );
+    
+    if (!spkIdResult) return null;
+
+    // Load signed prekey created at
+    const spkCreatedResult = await db.getFirstAsync<{ value: string }>(
+      `SELECT value FROM settings WHERE user_id = ? AND key = 'signed_prekey_created_at'`,
+      [userId]
+    );
+    
+    if (!spkCreatedResult) return null;
+
+    // Load onetime prekeys
+    const otpkResults = await db.getAllAsync<{ key_id: number; public_key: string; private_key_encrypted: string; used_at: number | null }>(
+      `SELECT key_id, public_key, private_key_encrypted, used_at FROM encryption_keys 
+       WHERE device_id = ? AND key_type = 'ONETIME_PREKEY' AND is_active = 1
+       ORDER BY key_id`,
+      [userId]
+    );
+
+    return {
+      identityKeyPair: {
+        publicKey: this.base64ToUint8Array(identityKeyResult.public_key),
+        privateKey: this.base64ToUint8Array(identityKeyResult.private_key_encrypted),
+        keyType: 'x25519',
+      },
+      signedPreKeyPair: {
+        publicKey: this.base64ToUint8Array(spkResult.public_key),
+        privateKey: this.base64ToUint8Array(spkResult.private_key_encrypted),
+        keyType: 'x25519',
+      },
+      signedPreKeySignature: this.base64ToUint8Array(sigResult.value),
+      signedPreKeyId: parseInt(spkIdResult.value, 10),
+      signedPreKeyCreatedAt: parseInt(spkCreatedResult.value, 10),
+      onetimePreKeys: otpkResults.map(row => ({
+        id: row.key_id,
+        keyPair: {
+          publicKey: this.base64ToUint8Array(row.public_key),
+          privateKey: this.base64ToUint8Array(row.private_key_encrypted),
+          keyType: 'x25519',
+        },
+        usedAt: row.used_at,
+      })),
+    };
+  }
+
+  private uint8ArrayToBase64(bytes: Uint8Array): string {
+    return btoa(String.fromCharCode(...bytes));
+  }
+
+  private base64ToUint8Array(base64: string): Uint8Array {
+    const binary = atob(base64);
+    const bytes = new Uint8Array(binary.length);
+    for (let i = 0; i < binary.length; i++) {
+      bytes[i] = binary.charCodeAt(i);
+    }
+    return bytes;
   }
 
   private async generateIOSIdentityKeyPair(): Promise<SecureKeyPair> {

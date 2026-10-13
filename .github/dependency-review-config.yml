@@ -1,18 +1,20 @@
-# .github/dependency-review-config.yml
-# Configuration for dependency-review-action
+# Dependency Review Configuration
+# Fails PR if new dependencies have high/critical vulnerabilities
 
-# Fail on vulnerabilities of this severity or higher
 fail-on-severity: high
 
-# Allow specific vulnerabilities by GHSA ID
-# allow-ghsas:
-#   - GHSA-xxxx-xxxx-xxxx
+# Allow specific licenses
+# allow-licenses:
+#   - MIT
+#   - Apache-2.0
+#   - BSD-2-Clause
+#   - BSD-3-Clause
+#   - ISC
 
-# Allow specific scopes
-# allowed-scopes:
-#   - test
-#   - development
-
-# Block licenses
+# Deny specific licenses
 # deny-licenses:
 #   - GPL-3.0-only
+#   - AGPL-3.0-only
+
+# Scope configuration
+config-file: '.github/dependency-review-config.yml'

@@ -1,13 +1,16 @@
 // src/crypto/keys.ts
 // Key management: generation, rotation, storage
+// Now uses Signal Protocol (Double Ratchet) via libsignal-protocol-typescript
 
 import * as Sodium from 'react-native-libsodium';
 import { keystore } from './keystore';
-import { IdentityKeys, OnetimePreKey, KeyBundle, SecureKeyPair, KeyPair } from './types';
+import { getSignalProtocolManager, resetSignalProtocolManager } from './signal-protocol';
+import { IdentityKeys, OnetimePreKey, KeyBundle, KeyPair, MessageEnvelope } from './types';
 
 export class KeyManager {
   private static instance: KeyManager;
   private currentIdentityKeys: IdentityKeys | null = null;
+  private signalManager: ReturnType<typeof getSignalProtocolManager> | null = null;
   
   static getInstance(): KeyManager {
     if (!KeyManager.instance) {
@@ -15,8 +18,19 @@ export class KeyManager {
     }
     return KeyManager.instance;
   }
+
+  // Set user context for Signal Protocol
+  setUserContext(userId: string, deviceId: number): void {
+    this.signalManager = getSignalProtocolManager(userId, deviceId);
+  }
+
+  clearUserContext(): void {
+    this.signalManager = null;
+    resetSignalProtocolManager();
+    this.currentIdentityKeys = null;
+  }
   
-  // Initialize keys for new device
+  // Initialize keys for new device (creates initial key material)
   async initializeDeviceKeys(): Promise<IdentityKeys> {
     // Generate identity key pair (X25519)
     const identityKeyPair = await Sodium.crypto_box_keypair();
@@ -57,7 +71,17 @@ export class KeyManager {
     };
     
     this.currentIdentityKeys = identityKeys;
+    
+    // Save to keystore (SQLite)
+    await keystore.saveIdentityKeys('current_user', identityKeys);
+    
     return identityKeys;
+  }
+  
+  // Load identity keys from keystore
+  async loadIdentityKeys(): Promise<IdentityKeys | null> {
+    this.currentIdentityKeys = await keystore.getIdentityKeys('current_user');
+    return this.currentIdentityKeys;
   }
   
   // Get current identity keys
@@ -92,6 +116,9 @@ export class KeyManager {
     identityKeys.signedPreKeySignature = signature;
     identityKeys.signedPreKeyId = newKeyId;
     identityKeys.signedPreKeyCreatedAt = Date.now();
+    
+    // Save to keystore
+    await keystore.saveIdentityKeys('current_user', identityKeys);
     
     return { keyPair: newKeyPair, signature, keyId: newKeyId };
   }
@@ -131,6 +158,9 @@ export class KeyManager {
     
     identityKeys.onetimePreKeys = [...recentUsed, ...newKeys];
     
+    // Save to keystore
+    await keystore.saveIdentityKeys('current_user', identityKeys);
+    
     return newKeys;
   }
   
@@ -150,6 +180,42 @@ export class KeyManager {
       onetimePrekeyPublic: onetimePreKey?.keyPair.publicKey || null,
       onetimePrekeyId: onetimePreKey?.id || null,
     };
+  }
+
+  // Get Signal Protocol key bundle
+  async getSignalKeyBundle(deviceId: string): Promise<KeyBundle> {
+    if (!this.signalManager) throw new Error('Signal manager not initialized');
+    return this.signalManager.getMyKeyBundle();
+  }
+
+  // Initialize Signal Protocol session with a contact
+  async initializeSignalSession(contactAccountId: string, contactDeviceId: number, theirKeyBundle: KeyBundle): Promise<void> {
+    if (!this.signalManager) throw new Error('Signal manager not initialized');
+    return this.signalManager.initializeSession(contactAccountId, contactDeviceId, theirKeyBundle);
+  }
+
+  // Encrypt message using Signal Protocol (Double Ratchet)
+  async encryptSignalMessage(contactAccountId: string, contactDeviceId: number, plaintext: Uint8Array): Promise<Uint8Array> {
+    if (!this.signalManager) throw new Error('Signal manager not initialized');
+    return this.signalManager.encrypt(contactAccountId, contactDeviceId, plaintext);
+  }
+
+  // Decrypt message using Signal Protocol (Double Ratchet)
+  async decryptSignalMessage(contactAccountId: string, contactDeviceId: number, ciphertext: Uint8Array): Promise<Uint8Array> {
+    if (!this.signalManager) throw new Error('Signal manager not initialized');
+    return this.signalManager.decrypt(contactAccountId, contactDeviceId, ciphertext);
+  }
+
+  // Check if Signal session exists
+  async hasSignalSession(contactAccountId: string, contactDeviceId: number): Promise<boolean> {
+    if (!this.signalManager) throw new Error('Signal manager not initialized');
+    return this.signalManager.hasSession(contactAccountId, contactDeviceId);
+  }
+
+  // Delete Signal session
+  async deleteSignalSession(contactAccountId: string, contactDeviceId: number): Promise<void> {
+    if (!this.signalManager) throw new Error('Signal manager not initialized');
+    return this.signalManager.deleteSession(contactAccountId, contactDeviceId);
   }
   
   // Generate sender key for group chats
@@ -214,6 +280,57 @@ export class KeyManager {
     );
     
     return plaintext;
+  }
+  
+  // Encrypt message for a contact using X3DH (current implementation)
+  async encryptForContact(plaintext: Uint8Array, contactAccountId: string, contactDeviceId: number): Promise<Uint8Array> {
+    // Get contact's key bundle from local storage or server
+    // For now, use the current user's keys as a placeholder
+    // In production, this would fetch the contact's KeyBundle from the server
+    const identityKeys = this.currentIdentityKeys;
+    if (!identityKeys) throw new Error('Identity keys not initialized');
+
+    const theirKeyBundle: KeyBundle = {
+      deviceId: contactDeviceId.toString(),
+      identityKeyPublic: identityKeys.identityKeyPair.publicKey, // Would be contact's identity key
+      signedPrekeyPublic: identityKeys.signedPreKeyPair.publicKey,
+      signedPrekeySignature: identityKeys.signedPreKeySignature,
+      signedPrekeyId: identityKeys.signedPreKeyId,
+      onetimePrekeyPublic: null,
+      onetimePrekeyId: null,
+    };
+
+    // Use the existing MessageEncryption.encrypt (X3DH)
+    const { MessageEncryption } = await import('./encryption');
+    const envelope = await MessageEncryption.encrypt(plaintext, theirKeyBundle, 'current_device', contactAccountId);
+    
+    // Return just the ciphertext for Signal Protocol compatibility
+    return envelope.ciphertext;
+  }
+
+  // Decrypt message from a contact using X3DH (current implementation)
+  async decryptFromContact(ciphertext: Uint8Array, contactAccountId: string, contactDeviceId: number): Promise<Uint8Array> {
+    const identityKeys = this.currentIdentityKeys;
+    if (!identityKeys) throw new Error('Identity keys not initialized');
+
+    // Create a minimal envelope for decryption
+    const envelope: MessageEnvelope = {
+      messageId: 'temp',
+      senderDeviceId: contactDeviceId.toString(),
+      recipientDeviceId: 'current_device',
+      conversationId: contactAccountId,
+      ciphertext,
+      nonce: new Uint8Array(24), // Would need actual nonce from message
+      ephemeralPublic: identityKeys.identityKeyPair.publicKey,
+      signedPreKeyId: identityKeys.signedPreKeyId,
+      onetimePreKeyId: null,
+      encryptionAlgorithm: 'X25519-AES256GCM',
+      contentType: 'TEXT',
+      createdAt: Date.now(),
+    };
+
+    const { MessageEncryption } = await import('./encryption');
+    return MessageEncryption.decrypt(envelope, identityKeys);
   }
 }
 

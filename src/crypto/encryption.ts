@@ -1,13 +1,16 @@
 // src/crypto/encryption.ts
-// Message encryption/decryption using X25519 + AES-256-GCM
+// Message encryption/decryption using Signal Protocol (Double Ratchet)
+// Falls back to legacy X3DH for compatibility
 
 import * as Sodium from 'react-native-libsodium';
+import { keyManager } from './keys';
 import { KeyBundle, MessageEnvelope, IdentityKeys } from './types';
 
 const ENCRYPTION_ALGORITHM = 'X25519-AES256GCM';
 const NONCE_SIZE = 24;
 
 export class MessageEncryption {
+  // Legacy X3DH encryption (for backward compatibility)
   static async encrypt(
     plaintext: Uint8Array,
     recipientKeyBundle: KeyBundle,
@@ -79,6 +82,7 @@ export class MessageEncryption {
     };
   }
 
+  // Legacy X3DH decryption (for backward compatibility)
   static async decrypt(
     envelope: MessageEnvelope,
     identityKeys: IdentityKeys
@@ -130,6 +134,24 @@ export class MessageEncryption {
     );
 
     return plaintext;
+  }
+
+  // Signal Protocol encryption (Double Ratchet) - NEW
+  static async encryptSignal(
+    plaintext: Uint8Array,
+    contactAccountId: string,
+    contactDeviceId: number
+  ): Promise<Uint8Array> {
+    return keyManager.encryptSignalMessage(contactAccountId, contactDeviceId, plaintext);
+  }
+
+  // Signal Protocol decryption (Double Ratchet) - NEW
+  static async decryptSignal(
+    ciphertext: Uint8Array,
+    contactAccountId: string,
+    contactDeviceId: number
+  ): Promise<Uint8Array> {
+    return keyManager.decryptSignalMessage(contactAccountId, contactDeviceId, ciphertext);
   }
 
   static async encryptForGroup(

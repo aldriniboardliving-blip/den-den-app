@@ -1,0 +1,8 @@
+{
+  "moderate": false,
+  "high": true,
+  "critical": true,
+  "allowlist": [],
+  "regress": true,
+  "reportType": "summary"
+}

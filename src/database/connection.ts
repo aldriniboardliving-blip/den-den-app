@@ -4,7 +4,7 @@
 import { SQLiteDatabase, openDatabaseAsync, SQLiteOpenOptions } from 'expo-sqlite';
 
 const DATABASE_NAME = 'denden.db';
-const CURRENT_SCHEMA_VERSION = 4;
+const CURRENT_SCHEMA_VERSION = 5;
 
 let db: SQLiteDatabase | null = null;
 
@@ -326,6 +326,51 @@ const MIGRATIONS: Array<{ version: number; name: string; sql: string }> = [
         imported_at INTEGER
       );
       CREATE INDEX idx_backups_user ON backups(user_id, created_at DESC);
+    `,
+  },
+  {
+    version: 5,
+    name: 'add_signal_protocol_tables',
+    sql: `
+      -- Signal Protocol sessions table
+      CREATE TABLE signal_sessions (
+        id TEXT PRIMARY KEY,
+        user_id TEXT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+        name TEXT NOT NULL,
+        device_id INTEGER NOT NULL,
+        session_data TEXT NOT NULL,
+        created_at INTEGER NOT NULL,
+        updated_at INTEGER NOT NULL,
+        UNIQUE(user_id, name, device_id)
+      );
+      CREATE INDEX idx_signal_sessions_user ON signal_sessions(user_id, name);
+      CREATE INDEX idx_signal_sessions_device ON signal_sessions(device_id);
+
+      -- Sender keys table (for group encryption)
+      CREATE TABLE sender_keys (
+        id TEXT PRIMARY KEY,
+        user_id TEXT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+        group_id TEXT NOT NULL,
+        sender_key_id INTEGER NOT NULL,
+        sender_key_data TEXT NOT NULL,
+        created_at INTEGER NOT NULL,
+        UNIQUE(user_id, group_id, sender_key_id)
+      );
+      CREATE INDEX idx_sender_keys_user ON sender_keys(user_id, group_id);
+
+      -- Remote identities table (for trust verification)
+      CREATE TABLE remote_identities (
+        id TEXT PRIMARY KEY,
+        user_id TEXT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+        name TEXT NOT NULL,
+        device_id INTEGER NOT NULL,
+        identity_key TEXT NOT NULL,
+        trust_level TEXT NOT NULL DEFAULT 'TRUSTED',
+        verified_at INTEGER,
+        created_at INTEGER NOT NULL,
+        UNIQUE(user_id, name, device_id)
+      );
+      CREATE INDEX idx_remote_identities_user ON remote_identities(user_id, name);
     `,
   },
 ];

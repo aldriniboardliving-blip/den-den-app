@@ -304,16 +304,13 @@ export default function ScanContactScreen() {
         
         <View style={styles.bottomHint}>
           <Text style={styles.hintText}>
-            Ask your contact to show their QR code from Settings > Safety Number
+            Ask your contact to show their QR code from Settings \u0026gt; Safety Number
           </Text>
         </View>
       </View>
     </View>
   );
 }
-
-// Need to import View, Text, etc. at the top
-import { View, Text, StyleSheet, TouchableOpacity, Alert, ActivityIndicator, Platform, PermissionsAndroid, ScrollView } from 'react-native';
 
 const styles = StyleSheet.create({
   container: {

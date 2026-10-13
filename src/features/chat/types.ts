@@ -1,9 +1,10 @@
 // src/features/chat/types.ts
 import { Message, Conversation, Contact, ConversationMember, MessageRecipient } from '@/types';
+import { Attachment } from '@/features/attachments/types';
 
 export type ReactionEmoji = '👍' | '❤️' | '😂' | '😮' | '😢' | '🎉' | '🙏' | '👎';
 
-export type { ConversationMember, MessageRecipient };
+export type { ConversationMember, MessageRecipient, Attachment };
 
 export interface ChatMessage extends Message {
   isOptimistic?: boolean;
@@ -11,6 +12,7 @@ export interface ChatMessage extends Message {
   isFailed?: boolean;
   reactions?: MessageReaction[];
   replyToMessageId?: string;
+  attachments?: Attachment[];
 }
 
 export interface MessageReaction {

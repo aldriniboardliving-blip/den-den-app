@@ -64,6 +64,12 @@ export default function SettingsScreen() {
           subtitle="Media auto-download, storage usage"
           onPress={() => {}}
         />
+        <SettingsItem
+          icon="phone-portrait"
+          title="Linked Devices"
+          subtitle="Manage devices, link new device"
+          onPress={() => router.push('/settings/devices')}
+        />
       </View>
 
       <View style={styles.section}>

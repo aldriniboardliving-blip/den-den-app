@@ -24,19 +24,21 @@ export class CertificatePinningService {
   private pins = new Map<string, PinnedCertificate>();
   private readonly enablePinning: boolean;
 
-  constructor(enablePinning = true) {
-    this.enablePinning = enablePinning;
+  constructor(enablePinning?: boolean) {
+    const env = process.env as Record<string, string | undefined>;
+    this.enablePinning = enablePinning ?? (env.ENABLE_CERT_PINNING !== 'false');
     this.loadDefaultPins();
   }
 
   private loadDefaultPins(): void {
     // Default pins for production endpoints
     // These should be configured via environment variables in production
-    const apiHost = process.env.API_HOST || 'api.den-den.app';
-    const wsHost = process.env.WS_HOST || 'api.den-den.app';
+    const env = process.env as Record<string, string | undefined>;
+    const apiHost = env.API_HOST || 'api.den-den.app';
+    const wsHost = env.WS_HOST || 'api.den-den.app';
     
-    const primaryPin = process.env.CERT_PIN_PRIMARY;
-    const backupPins = process.env.CERT_PIN_BACKUP?.split(',').filter(Boolean) || [];
+    const primaryPin = env.CERT_PIN_PRIMARY;
+    const backupPins = (env.CERT_PIN_BACKUP || '').split(',').filter(Boolean);
     
     if (primaryPin) {
       this.addPin({
@@ -50,8 +52,8 @@ export class CertificatePinningService {
       });
     }
 
-    const wsPrimaryPin = process.env.WS_CERT_PIN_PRIMARY;
-    const wsBackupPins = process.env.WS_CERT_PIN_BACKUP?.split(',').filter(Boolean) || [];
+    const wsPrimaryPin = env.WS_CERT_PIN_PRIMARY;
+    const wsBackupPins = (env.WS_CERT_PIN_BACKUP || '').split(',').filter(Boolean);
 
     if (wsPrimaryPin) {
       this.addPin({

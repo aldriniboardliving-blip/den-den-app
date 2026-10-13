@@ -20,11 +20,7 @@
         { "type": "perf", "section": "Performance" },
         { "type": "refactor", "section": "Refactoring" },
         { "type": "docs", "section": "Documentation", "hidden": false },
-        { "type": "security", "section": "Security", "hidden": false },
-        { "type": "test", "section": "Tests", "hidden": true },
-        { "type": "chore", "section": "Chores", "hidden": true },
-        { "type": "build", "section": "Build", "hidden": true },
-        { "type": "ci", "section": "CI", "hidden": true }
+        { "type": "security", "section": "Security", "hidden": false }
       ]
     }
   },
@@ -32,15 +28,12 @@
     "changelogFile": "CHANGELOG.md"
   },
   "git": {
-    "assets": ["CHANGELOG.md", "package.json"],
+    "assets": ["CHANGELOG.md", "package.json", "backend/package.json"],
     "message": "chore(release): ${nextRelease.version} [skip ci]\n\n${nextRelease.notes}"
   },
   "github": {
     "assets": [
       { "path": "dist/**", "label": "Distribution" }
     ]
-  },
-  "npm": {
-    "publish": true
   }
 }

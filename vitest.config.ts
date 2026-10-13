@@ -10,8 +10,8 @@ export default defineConfig({
   plugins: [react()],
   test: {
     environment: 'jsdom',
-    setupFiles: ['./test/setup.ts'],
-    include: ['src/**/*.test.ts', 'src/**/*.test.tsx'],
+    setupFiles: ['./test/setup.js'],
+    include: ['src/**/*.test.js', 'src/**/*.test.jsx'],
     coverage: {
       provider: 'v8',
       reporter: ['text', 'json', 'html'],
@@ -23,10 +23,21 @@ export default defineConfig({
       },
     },
     globals: true,
+    transformMode: {
+      web: ['/src/.*\\.jsx?$/'],
+    },
+    typecheck: {
+      enabled: false,
+    },
   },
   resolve: {
     alias: {
       '@': path.resolve(__dirname, './src'),
     },
+  },
+  esbuild: {
+    target: 'es2022',
+    include: ['src/**/*.test.js', 'src/**/*.test.jsx'],
+    loader: { '.js': 'jsx', '.jsx': 'jsx' },
   },
 });

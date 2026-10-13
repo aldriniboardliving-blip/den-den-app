@@ -197,7 +197,7 @@ class ApiClient {
     return this.request('/messages/send', {
       method: 'POST',
       body: JSON.stringify(envelope),
-      idempotencyKey: envelope.messageId,
+      idempotencyKey: envelope.clientMessageId || envelope.messageId,
     });
   }
 
@@ -300,6 +300,50 @@ class ApiClient {
   async unregisterPushToken(token: string): Promise<void> {
     return this.request(`/push-tokens/${token}`, {
       method: 'DELETE',
+    });
+  }
+
+  // Multi-device methods
+  async initiateDeviceLink(data: {
+    newDevicePublicKey: string;
+    newDeviceSigningKey: string;
+    newDeviceName?: string;
+    platform: 'ios' | 'android' | 'web';
+    platformVersion?: string;
+    appVersion?: string;
+  }): Promise<{ challengeId: string; expiresAt: Date }> {
+    return this.request('/multidevice/link/initiate', {
+      method: 'POST',
+      body: JSON.stringify(data),
+      idempotencyKey: generateIdempotencyKey(),
+    });
+  }
+
+  async approveDeviceLink(challengeId: string, approve: boolean): Promise<{ success: boolean; deviceId?: string }> {
+    return this.request('/multidevice/link/approve', {
+      method: 'POST',
+      body: JSON.stringify({ challengeId, approve }),
+    });
+  }
+
+  async getLinkedDevices(): Promise<{ devices: Array<{
+    id: string;
+    deviceName: string | null;
+    platform: string;
+    platformVersion: string | null;
+    appVersion: string | null;
+    linkedAt: Date;
+    lastActiveAt: Date | null;
+    isPrimary: boolean;
+  }> }> {
+    return this.request('/multidevice/devices');
+  }
+
+  async revokeDevice(deviceId: string): Promise<{ success: boolean }> {
+    return this.request('/multidevice/devices/revoke', {
+      method: 'POST',
+      body: JSON.stringify({ deviceId }),
+      idempotencyKey: generateIdempotencyKey(),
     });
   }
 }

@@ -1,0 +1,149 @@
+# Dependabot Configuration
+# Automated dependency updates for security and maintenance
+
+version: 2
+updates:
+  # Mobile app dependencies
+  - package-ecosystem: "npm"
+    directory: "/"
+    schedule:
+      interval: "weekly"
+      day: "monday"
+      time: "02:00"
+      timezone: "UTC"
+    labels:
+      - "dependencies"
+      - "mobile"
+    commit-message:
+      prefix: "chore(deps):"
+      prefix-development: "chore(deps-dev):"
+      include: "scope"
+    groups:
+      expo:
+        patterns:
+          - "expo*"
+          - "@expo*"
+        update-types:
+          - "minor"
+          - "patch"
+      react-native:
+        patterns:
+          - "react-native*"
+          - "@react-native*"
+        update-types:
+          - "minor"
+          - "patch"
+      react:
+        patterns:
+          - "react"
+          - "react-*"
+          - "@types/react*"
+        update-types:
+          - "minor"
+          - "patch"
+      testing:
+        patterns:
+          - "vitest"
+          - "@vitest*"
+          - "@testing-library*"
+          - "detox"
+        update-types:
+          - "minor"
+          - "patch"
+      typescript:
+        patterns:
+          - "typescript"
+          - "@types/*"
+          - "tsx"
+        update-types:
+          - "minor"
+          - "patch"
+      crypto:
+        patterns:
+          - "libsodium*"
+          - "react-native-libsodium"
+        update-types:
+          - "patch"
+    ignore:
+      # Major version updates require manual review
+      - dependency-type: "direct"
+        update-type: "version-update:semver-major"
+    open-pull-requests-limit: 10
+
+  # Backend dependencies
+  - package-ecosystem: "npm"
+    directory: "/backend"
+    schedule:
+      interval: "weekly"
+      day: "monday"
+      time: "02:30"
+      timezone: "UTC"
+    labels:
+      - "dependencies"
+      - "backend"
+    commit-message:
+      prefix: "chore(deps):"
+      prefix-development: "chore(deps-dev):"
+      include: "scope"
+    groups:
+      nestjs:
+        patterns:
+          - "@nestjs*"
+        update-types:
+          - "minor"
+          - "patch"
+      drizzle:
+        patterns:
+          - "drizzle*"
+        update-types:
+          - "minor"
+          - "patch"
+      postgres:
+        patterns:
+          - "pg"
+          - "postgres*"
+        update-types:
+          - "minor"
+          - "patch"
+      testing:
+        patterns:
+          - "vitest"
+          - "@vitest*"
+          - "@nestjs/testing"
+        update-types:
+          - "minor"
+          - "patch"
+      security:
+        patterns:
+          - "helmet"
+          - "csurf"
+          - "rate-limiter*"
+        update-types:
+          - "minor"
+          - "patch"
+    ignore:
+      - dependency-type: "direct"
+        update-type: "version-update:semver-major"
+    open-pull-requests-limit: 10
+
+  # GitHub Actions
+  - package-ecosystem: "github-actions"
+    directory: "/"
+    schedule:
+      interval: "weekly"
+      day: "monday"
+      time: "03:00"
+      timezone: "UTC"
+    labels:
+      - "dependencies"
+      - "github-actions"
+    commit-message:
+      prefix: "chore(deps):"
+      include: "scope"
+    groups:
+      actions:
+        patterns:
+          - "*"
+        update-types:
+          - "minor"
+          - "patch"

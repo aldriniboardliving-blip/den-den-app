@@ -5,3 +5,4 @@ export * from './keys';
 export * from './encryption';
 export * from './backup';
 export * from './verification';
+export * from './signal-protocol';

@@ -34,9 +34,8 @@ jobs:
       - name: Type Check Mobile
         run: npx tsc --noEmit
 
-      # Backend typecheck (if monorepo)
-      # - name: Type Check Backend
-      #   run: cd backend && npm ci && npx tsc --noEmit
+      - name: Type Check Backend
+        run: cd backend && npm ci && npx tsc --noEmit
 
   # ──────────────────────────────────────────────
   # Linting
@@ -60,9 +59,8 @@ jobs:
       - name: Lint Mobile
         run: npx expo lint
 
-      # Backend lint
-      # - name: Lint Backend
-      #   run: cd backend && npm ci && npm run lint
+      - name: Lint Backend
+        run: cd backend && npm ci && npm run lint
 
   # ──────────────────────────────────────────────
   # Unit Tests
@@ -159,9 +157,8 @@ jobs:
       - name: Build Web Export
         run: npx expo export --platform web
 
-      # Backend build
-      # - name: Build Backend
-      #   run: cd backend && npm ci && npm run build
+      - name: Build Backend
+        run: cd backend && npm ci && npm run build
 
   # ──────────────────────────────────────────────
   # Security Scan
