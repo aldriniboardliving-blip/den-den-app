@@ -14,6 +14,8 @@ import {
   DEFAULT_WS_CONFIG,
   ConnectionConfig 
 } from '../types';
+import { SecureWebSocket, createSecureWebSocket } from '@/security/secure-websocket';
+import { certificatePinningService } from '@/security/certificate-pinning';
 
 // Re-export types for components
 export type { RealtimeEvent, RealtimeEventType } from '../types';
@@ -23,7 +25,7 @@ type EventListener = (event: RealtimeEvent) => void;
 type StateListener = (state: ConnectionState) => void;
 
 class RealtimeClient {
-  private ws: WebSocket | null = null;
+  private ws: SecureWebSocket | null = null;
   private config: ConnectionConfig;
   private state: ConnectionState = 'disconnected';
   private reconnectAttempts = 0;
@@ -45,7 +47,7 @@ class RealtimeClient {
 
   connect(token: string, deviceId: string): Promise<void> {
     return new Promise((resolve, reject) => {
-      if (this.ws?.readyState === WebSocket.OPEN) {
+      if (this.ws?.isConnected()) {
         resolve();
         return;
       }
@@ -54,46 +56,55 @@ class RealtimeClient {
       
       try {
         const wsUrl = `${this.config.url}?token=${encodeURIComponent(token)}&deviceId=${encodeURIComponent(deviceId)}`;
-        this.ws = new WebSocket(wsUrl);
         
-        this.ws.onopen = () => {
-          console.log('[Realtime] Connected');
+        this.ws = createSecureWebSocket({
+          url: wsUrl,
+          certificatePinning: certificatePinningService,
+          reconnectInterval: this.config.reconnectInterval,
+          maxReconnectInterval: this.config.maxReconnectInterval,
+          reconnectAttempts: this.config.reconnectAttempts,
+          heartbeatInterval: this.config.heartbeatInterval,
+          connectionTimeout: this.config.connectionTimeout,
+        });
+
+        this.ws.onOpen(() => {
+          console.log('[Realtime] Connected securely with certificate pinning');
           this.reconnectAttempts = 0;
           this.setState('connected');
           this.startHeartbeat();
           this.flushMessageQueue();
           resolve();
-        };
+        });
 
-        this.ws.onclose = (event) => {
+        this.ws.onClose((event) => {
           console.log('[Realtime] Disconnected:', event.code, event.reason);
           this.stopHeartbeat();
           
           if (this.state !== 'disconnected') {
             this.scheduleReconnect();
           }
-        };
+        });
 
-        this.ws.onerror = (error) => {
+        this.ws.onError((error) => {
           console.error('[Realtime] Error:', error);
           if (this.state === 'connecting') {
             reject(error);
           }
-        };
+        });
 
-        this.ws.onmessage = (event) => {
+        this.ws.onMessage((event) => {
           try {
             const message = JSON.parse(event.data) as WebSocketMessage;
             this.handleMessage(message);
           } catch (error) {
             console.error('[Realtime] Failed to parse message:', error);
           }
-        };
+        });
 
         // Connection timeout
         setTimeout(() => {
           if (this.state === 'connecting') {
-            this.ws?.close();
+            this.ws?.disconnect();
             reject(new Error('Connection timeout'));
           }
         }, this.config.connectionTimeout);
@@ -111,7 +122,7 @@ class RealtimeClient {
     this.clearReconnectTimer();
     
     if (this.ws) {
-      this.ws.close();
+      this.ws.disconnect();
       this.ws = null;
     }
     
@@ -123,7 +134,7 @@ class RealtimeClient {
   }
 
   send(message: WebSocketMessage): boolean {
-    if (this.ws?.readyState === WebSocket.OPEN) {
+    if (this.ws?.isConnected()) {
       this.ws.send(JSON.stringify(message));
       return true;
     } else {
@@ -202,9 +213,19 @@ class RealtimeClient {
   // Message delivery
   sendDeliveryReceipt(receipt: MessageDeliveryReceipt) {
     this.send({
-      type: 'MESSAGE_DELIVERED',
-      payload: receipt,
-      conversationId: receipt.conversationId,
+      type: 'ACK',
+      payload: {
+        serverMessageId: receipt.messageId,
+        status: 'PERSISTED_LOCALLY',
+      },
+    });
+  }
+
+  // Read receipts
+  sendReadReceipt(messageId: string) {
+    this.send({
+      type: 'READ',
+      payload: { serverMessageId: messageId },
     });
   }
 
@@ -242,7 +263,7 @@ class RealtimeClient {
   }
 
   private flushMessageQueue() {
-    while (this.messageQueue.length > 0 && this.ws?.readyState === WebSocket.OPEN) {
+    while (this.messageQueue.length > 0 && this.ws?.isConnected()) {
       const message = this.messageQueue.shift()!;
       this.ws!.send(JSON.stringify(message));
     }
@@ -251,7 +272,7 @@ class RealtimeClient {
   private startHeartbeat() {
     this.stopHeartbeat();
     this.heartbeatTimer = setInterval(() => {
-      if (this.ws?.readyState === WebSocket.OPEN) {
+      if (this.ws?.isConnected()) {
         this.send({ type: 'HEARTBEAT', payload: { timestamp: Date.now() } });
       }
     }, this.config.heartbeatInterval);
@@ -413,6 +434,10 @@ export function useRealtime() {
     clientRef.current?.sendDeliveryReceipt(receipt);
   }, []);
 
+  const sendReadReceipt = useCallback((messageId: string) => {
+    clientRef.current?.sendReadReceipt(messageId);
+  }, []);
+
   const requestSync = useCallback((syncRequest: SyncRequest) => {
     return clientRef.current?.requestSync(syncRequest);
   }, []);
@@ -444,6 +469,7 @@ export function useRealtime() {
     sendMessage,
     sendTyping,
     sendDeliveryReceipt,
+    sendReadReceipt,
     requestSync,
     onEvent,
   };

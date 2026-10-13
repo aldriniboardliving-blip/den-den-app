@@ -3,6 +3,7 @@ import { DrizzleService } from '../common/database/drizzle.service';
 import { relayMessages, devices, messageRecipients, messages } from '../common/database/schema';
 import { eq, and, desc, sql, lt, gte, isNull, inArray } from 'drizzle-orm';
 import { RealtimeGateway } from '../realtime/realtime.gateway';
+import { NotificationsService } from '../notifications/notifications.service';
 
 @Injectable()
 export class RelayService {
@@ -11,6 +12,7 @@ export class RelayService {
   constructor(
     private drizzle: DrizzleService,
     private realtime: RealtimeGateway,
+    private notifications: NotificationsService,
   ) {}
 
   async notifyRecipient(deviceId: string, messageId: string) {
@@ -20,7 +22,30 @@ export class RelayService {
 
     if (!device) return;
 
-    this.realtime.sendToDevice(deviceId, 'MESSAGE_NEW', { messageId });
+    const isOnline = this.realtime.isDeviceOnline(deviceId);
+    
+    if (isOnline) {
+      this.realtime.sendToDevice(deviceId, 'MESSAGE_NEW', { messageId });
+    } else {
+      // Device is offline, send push notification
+      await this.sendPushNotification(device.userId, {
+        title: 'New Message',
+        body: 'You have a new message',
+        data: { messageId, type: 'MESSAGE_RECEIVED' },
+      });
+    }
+  }
+
+  private async sendPushNotification(userId: string, payload: any) {
+    try {
+      await this.notifications.sendToUser(userId, {
+        title: payload.title,
+        body: payload.body,
+        data: payload.data,
+      });
+    } catch (error) {
+      this.logger.warn(`Failed to send push notification to user ${userId}:`, error);
+    }
   }
 
   async getPendingForDelivery(deviceId: string, limit = 100) {

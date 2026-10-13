@@ -2,3 +2,4 @@
 export * from './ContactsListScreen';
 export * from './ContactDetailScreen';
 export * from './AddContactScreen';
+export * from './ScanContactScreen';

@@ -77,10 +77,10 @@ export class AuthService {
     return this.generateTokens(user.id, device.id);
   }
 
-  async refreshTokens(refreshToken: string): Promise<AuthTokens> {
+async refreshTokens(refreshToken: string): Promise<AuthTokens> {
     try {
-      const payload = this.jwt.verify<TokenPayload>(refreshToken, {
-secret: this.config.get('JWT_REFRESH_SECRET') || this.config.get('JWT_SECRET') || 'dev-secret',
+      const payload = await this.jwt.verify<TokenPayload>(refreshToken, {
+        secret: this.config.get('JWT_REFRESH_SECRET') || this.config.get('JWT_SECRET') || 'dev-secret',
       });
 
       if (payload.type !== 'refresh') {
@@ -97,6 +97,9 @@ secret: this.config.get('JWT_REFRESH_SECRET') || this.config.get('JWT_SECRET') |
 
       return this.generateTokens(payload.userId, payload.deviceId);
     } catch (error) {
+      if (error instanceof UnauthorizedException && error.message === 'Device revoked') {
+        throw error;
+      }
       throw new UnauthorizedException('Invalid refresh token');
     }
   }

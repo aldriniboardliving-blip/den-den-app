@@ -1,4 +1,4 @@
-import { Controller, Post, Delete, Body, Param } from '@nestjs/common';
+import { Controller, Post, Delete, Body, Param, Get, Query } from '@nestjs/common';
 import { ApiTags, ApiOperation, ApiResponse, ApiBearerAuth } from '@nestjs/swagger';
 import { NotificationsService } from './notifications.service';
 import { CurrentUser, CurrentDevice } from '../common/decorators/current-user.decorator';
@@ -12,7 +12,14 @@ const registerTokenSchema = z.object({
   platform: z.enum(['expo', 'fcm', 'apns']),
 });
 
+const sendNotificationSchema = z.object({
+  title: z.string().min(1).max(100),
+  body: z.string().min(1).max(500),
+  data: z.record(z.string(), z.any()).optional(),
+});
+
 type RegisterTokenDto = z.infer<typeof registerTokenSchema>;
+type SendNotificationDto = z.infer<typeof sendNotificationSchema>;
 
 @ApiTags('notifications')
 @ApiBearerAuth()
@@ -39,5 +46,15 @@ export class NotificationsController {
     @Param('token') token: string,
   ) {
     return this.notifications.unregisterToken(deviceId, token);
+  }
+
+  @Post('send')
+  @ApiOperation({ summary: 'Send push notification to current user' })
+  @ApiResponse({ status: 200, description: 'Notification sent' })
+  async sendToSelf(
+    @CurrentUser('id') userId: string,
+    @Body(new ZodValidationPipe(sendNotificationSchema)) dto: SendNotificationDto,
+  ) {
+    return this.notifications.sendToUser(userId, dto);
   }
 }

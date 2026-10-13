@@ -179,20 +179,44 @@ export class ConversationsRepository {
     );
   }
 
-  async getDirectConversation(userId: string, otherAccountId: string): Promise<Conversation | null> {
+async getDirectConversation(userId: string, otherAccountId: string): Promise<Conversation | null> {
     const db = await getDatabase();
 
     // Find direct conversation with this contact
     return db.getFirstAsync<Conversation>(
       `SELECT c.* FROM conversations c
-       JOIN conversation_members cm ON c.id = cm.conversation_id
-       WHERE c.user_id = ? 
-       AND c.type = 'DIRECT'
-       AND c.deleted_at IS NULL
-       AND cm.account_id = ?
-       AND cm.is_active = 1`,
-      userId,
-      otherAccountId
+        JOIN conversation_members cm ON c.id = cm.conversation_id
+        WHERE c.user_id = ? 
+        AND c.type = 'DIRECT'
+        AND c.deleted_at IS NULL
+        AND cm.account_id = ?
+        AND cm.is_active = 1`,
+        userId,
+        otherAccountId
+      );
+  }
+
+  async getMembers(conversationId: string): Promise<Array<{
+    id: string;
+    conversationId: string;
+    deviceId: string;
+    accountId: string;
+    role: string;
+    senderKeyPublic: string | null;
+    senderKeyPrivate: string | null;
+    joinedAt: number;
+    leftAt: number | null;
+    isActive: number;
+    syncStatus: string;
+    lastSyncedAt: number | null;
+    serverVersion: number;
+    createdAt: number;
+    updatedAt: number;
+  }>> {
+    const db = await getDatabase();
+    return db.getAllAsync(
+      `SELECT * FROM conversation_members WHERE conversation_id = ? AND is_active = 1 AND left_at IS NULL`,
+      conversationId
     );
   }
 }

@@ -3,6 +3,7 @@
 
 import { getDatabase } from '../database/connection';
 import { CONFIG } from '../constants/config';
+import { UploadInitiationResult } from '../features/attachments/types';
 
 interface ApiResponse<T> {
   data: T;
@@ -219,7 +220,7 @@ class ApiClient {
     mimeType: string;
     sizeBytes: number;
     conversationId: string;
-  }): Promise<{ uploadUrl: string }> {
+  }): Promise<UploadInitiationResult> {
     return this.request('/attachments/upload-url', {
       method: 'POST',
       body: JSON.stringify(data),
@@ -234,6 +235,46 @@ class ApiClient {
     });
   }
 
+  async confirmAttachmentUpload(attachmentId: string, deviceId: string): Promise<any> {
+    return this.request(`/attachments/${attachmentId}/confirm`, {
+      method: 'POST',
+      body: JSON.stringify({ deviceId }),
+    });
+  }
+
+  async processAttachmentUpload(attachmentId: string, deviceId: string): Promise<any> {
+    return this.request(`/attachments/${attachmentId}/process`, {
+      method: 'POST',
+      body: JSON.stringify({ deviceId }),
+    });
+  }
+
+  async getMessageAttachments(messageId: string): Promise<any[]> {
+    return this.request(`/attachments/messages/${messageId}`);
+  }
+
+  async deleteAttachment(attachmentId: string, deviceId: string): Promise<void> {
+    return this.request(`/attachments/${attachmentId}`, {
+      method: 'DELETE',
+      body: JSON.stringify({ deviceId }),
+    });
+  }
+
+  async retryAttachmentUpload(attachmentId: string, deviceId: string, userId: string): Promise<any> {
+    return this.request(`/attachments/${attachmentId}/retry`, {
+      method: 'POST',
+      body: JSON.stringify({ deviceId, userId }),
+    });
+  }
+
+  async getPendingUploads(deviceId: string): Promise<any[]> {
+    return this.request('/attachments/pending', { params: { deviceId } });
+  }
+
+  async getDownloadUrl(attachmentId: string, deviceId: string): Promise<{ downloadUrl: string; attachment: any }> {
+    return this.request(`/attachments/${attachmentId}/download-url`, { params: { deviceId } });
+  }
+
   async getContact(accountId: string): Promise<any> {
     return this.request(`/contacts/${accountId}`);
   }
@@ -242,6 +283,23 @@ class ApiClient {
     return this.request(`/devices/${deviceId}`, {
       method: 'PATCH',
       body: JSON.stringify(device),
+    });
+  }
+
+  async getPendingMessages(deviceId: string): Promise<any[]> {
+    return this.request(`/messages/pending`, { params: { deviceId } });
+  }
+
+  async registerPushToken(token: string, platform: 'expo' | 'fcm' | 'apns'): Promise<void> {
+    return this.request('/push-tokens', {
+      method: 'POST',
+      body: JSON.stringify({ token, platform }),
+    });
+  }
+
+  async unregisterPushToken(token: string): Promise<void> {
+    return this.request(`/push-tokens/${token}`, {
+      method: 'DELETE',
     });
   }
 }

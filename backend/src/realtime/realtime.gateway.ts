@@ -13,6 +13,7 @@ import { ConfigService } from '@nestjs/config';
 import { DrizzleService } from '../common/database/drizzle.service';
 import { devices, pushTokens } from '../common/database/schema';
 import { eq, and, isNull } from 'drizzle-orm';
+import { RelayService } from '../relay/relay.service';
 
 interface AuthenticatedSocket extends Socket {
   userId?: string;
@@ -33,6 +34,7 @@ export class RealtimeGateway implements OnGatewayConnection, OnGatewayDisconnect
     private jwt: JwtService,
     private config: ConfigService,
     private drizzle: DrizzleService,
+    private relay: RelayService,
   ) {}
 
   async handleConnection(client: AuthenticatedSocket) {
@@ -78,6 +80,9 @@ export class RealtimeGateway implements OnGatewayConnection, OnGatewayDisconnect
         .set({ lastActiveAt: new Date() })
         .where(eq(devices.id, deviceId));
 
+      // Recover any unacknowledged messages for this device
+      await this.relay.recoverUnackedOnReconnect(deviceId);
+
       console.log(`🔌 Device ${deviceId} connected (socket: ${client.id})`);
     } catch (error) {
       console.error('WebSocket auth failed:', error);
@@ -101,12 +106,23 @@ export class RealtimeGateway implements OnGatewayConnection, OnGatewayDisconnect
   @SubscribeMessage('ACK')
   async handleAck(
     @ConnectedSocket() client: AuthenticatedSocket,
-    @MessageBody() data: { serverMessageId: string; status: 'PERSISTED_LOCALLY' },
+    @MessageBody() data: { serverMessageId: string; status: 'PERSISTED_LOCALLY'; clientMessageId?: string },
   ) {
     if (!client.deviceId) return { success: false, error: 'Not authenticated' };
 
     console.log(`✅ ACK from ${client.deviceId} for message ${data.serverMessageId}`);
-    return { success: true };
+
+    try {
+      const result = await this.relay.verifyAndAck(
+        data.serverMessageId,
+        client.deviceId,
+        data.clientMessageId || '',
+      );
+      return { success: result.success, duplicate: result.duplicate, reason: result.reason };
+    } catch (error) {
+      console.error('[RealtimeGateway] ACK processing failed:', error);
+      return { success: false, error: 'Failed to process acknowledgment' };
+    }
   }
 
   @SubscribeMessage('READ')
@@ -116,7 +132,14 @@ export class RealtimeGateway implements OnGatewayConnection, OnGatewayDisconnect
   ) {
     if (!client.deviceId) return { success: false, error: 'Not authenticated' };
     console.log(`📖 READ from ${client.deviceId} for message ${data.serverMessageId}`);
-    return { success: true };
+
+    try {
+      const success = await this.relay.verifyAndMarkRead(data.serverMessageId, client.deviceId);
+      return { success };
+    } catch (error) {
+      console.error('[RealtimeGateway] READ processing failed:', error);
+      return { success: false, error: 'Failed to process read receipt' };
+    }
   }
 
   @SubscribeMessage('SYNC_REQUEST')

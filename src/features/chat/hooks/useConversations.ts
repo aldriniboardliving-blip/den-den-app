@@ -7,6 +7,9 @@ import { messagesRepository } from '@/database/repositories/messages';
 import { contactsRepository } from '@/database/repositories/contacts';
 import { ConversationWithLastMessage, ChatMessage } from '../types';
 import { Contact } from '@/types';
+import { api } from '@/api/client';
+import { MessageEncryption } from '@/crypto';
+import { devicesRepository } from '@/database/repositories/devices';
 
 export function useConversations() {
   const { conversations, setConversations, isLoading, setLoading } = useChatStore();
@@ -129,8 +132,73 @@ export function useMessages(conversationId: string | null) {
     addMessage(optimisticMessage);
 
     try {
-      // TODO: Integrate with encryption and sync queue
-      // For now, just mark as sent locally
+      // Get current user's primary device
+      const primaryDevice = await devicesRepository.getPrimary(user.id);
+      if (!primaryDevice) {
+        throw new Error('No primary device found');
+      }
+
+      // Get conversation members to find recipients
+      const members = await conversationsRepository.getMembers(conversationId);
+      const recipientMembers = members.filter(m => m.deviceId !== primaryDevice.id && m.isActive === 1);
+      
+      if (recipientMembers.length === 0) {
+        throw new Error('No recipients found in conversation');
+      }
+
+      // Encrypt message for each recipient
+      const envelopes = [];
+      for (const member of recipientMembers) {
+        // Get recipient's prekey bundle from API
+        const keyBundleResponse = await api.getKeyBundle(member.deviceId);
+        
+        // Transform API response to KeyBundle format expected by MessageEncryption
+        const keyBundle = {
+          deviceId: member.deviceId,
+          identityKeyPublic: keyBundleResponse.identityKey,
+          signedPrekeyPublic: keyBundleResponse.signedPreKey.publicKey,
+          signedPrekeySignature: keyBundleResponse.signedPreKey.signature,
+          signedPrekeyId: keyBundleResponse.signedPreKey.keyId,
+          onetimePrekeyPublic: keyBundleResponse.oneTimePreKey?.publicKey || null,
+          onetimePrekeyId: keyBundleResponse.oneTimePreKey?.keyId || null,
+        };
+
+        // Encrypt message for this recipient
+        const plaintext = new TextEncoder().encode(content);
+        const envelope = await MessageEncryption.encrypt(
+          plaintext,
+          keyBundle,
+          primaryDevice.id,
+          conversationId
+        );
+        
+        // Convert Uint8Arrays to base64 strings for API
+        const toBase64 = (bytes: Uint8Array) => btoa(String.fromCharCode(...bytes));
+        
+        envelopes.push({
+          messageId: envelope.messageId,
+          senderDeviceId: envelope.senderDeviceId,
+          recipientDeviceId: envelope.recipientDeviceId,
+          conversationId: envelope.conversationId,
+          ciphertext: toBase64(envelope.ciphertext),
+          nonce: toBase64(envelope.nonce),
+          ephemeralPublic: toBase64(envelope.ephemeralPublic),
+          signedPreKeyId: envelope.signedPreKeyId,
+          onetimePreKeyId: envelope.onetimePreKeyId,
+          sentAt: new Date(envelope.createdAt).toISOString(),
+        });
+      }
+
+      // Send encrypted envelopes to backend
+      await api.sendMessage({
+        conversationId,
+        clientMessageId: messageId,
+        type: 'TEXT',
+        content: null, // Don't send plaintext
+        envelopes,
+      });
+
+      // Update local message status
       updateMessage(conversationId, messageId, {
         status: 'RELAYED',
         sentAt: Date.now(),

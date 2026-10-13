@@ -26,7 +26,9 @@ export type RealtimeEventType =
   | 'SYNC_REQUEST'
   | 'HEARTBEAT'
   | 'RECONNECT_NEEDED'
-  | 'ERROR';
+  | 'ERROR'
+  | 'ACK'
+  | 'READ';
 
 export interface RealtimeEvent<T = any> {
   type: RealtimeEventType;

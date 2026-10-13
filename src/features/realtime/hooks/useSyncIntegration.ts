@@ -9,10 +9,12 @@ import { contactsRepository } from '@/database/repositories/contacts';
 import { settingsRepository } from '@/database/repositories/settings';
 import { api } from '@/api/client';
 import { Message, MessageStatus, Conversation, Contact, SyncStatus } from '@/types';
+import * as Notifications from 'expo-notifications';
+import { router } from 'expo-router';
 
 export function useSyncIntegration() {
   const { user, accessToken, device } = useAuthStore();
-  const { onEvent, sendDeliveryReceipt, state } = useRealtime();
+  const { onEvent, sendDeliveryReceipt, sendReadReceipt, state } = useRealtime();
   const processingRef = useRef<Set<string>>(new Set());
 
   // Handle incoming messages
@@ -237,6 +239,26 @@ export function useSyncIntegration() {
     };
   }, [onEvent, user, state]);
 
+  // Handle reconnection - recover unacked messages
+  useEffect(() => {
+    if (!user) return;
+
+    const unsubscribeReconnect = onEvent('RECONNECT_NEEDED', async () => {
+      if (!device) return;
+      console.log('[SyncIntegration] Reconnect needed, recovering unacked messages for device:', device.id);
+      // The backend will handle recovery via relay.recoverUnackedOnReconnect
+      // But we can also request pending messages from the server
+      try {
+        const pendingMessages = await api.getPendingMessages(device.id);
+        console.log('[SyncIntegration] Recovered pending messages on reconnect:', pendingMessages.length);
+      } catch (error) {
+        console.error('[SyncIntegration] Failed to recover messages on reconnect:', error);
+      }
+    });
+
+    return () => unsubscribeReconnect();
+  }, [onEvent, user, device]);
+
   // Request sync when coming online
   useEffect(() => {
     if (state === 'connected' && user && accessToken) {
@@ -264,6 +286,31 @@ export function useSyncIntegration() {
       })();
     }
   }, [state, user, accessToken]);
+
+  // Handle notification response (when user taps on a notification)
+  useEffect(() => {
+    if (!user) return;
+
+    const responseListener = Notifications.addNotificationResponseReceivedListener(response => {
+      const { notification } = response;
+      const data = notification.request.content.data as Record<string, unknown> | undefined;
+      
+      if (data?.conversationId) {
+        // Navigate to the conversation
+        router.push(`/chat/${data.conversationId}`);
+      } else if (data?.contactId) {
+        // Navigate to contact detail
+        router.push(`/contacts/${data.contactId}`);
+      } else if (data?.groupId) {
+        // Navigate to group info
+        router.push(`/chat/group-info/${data.groupId}`);
+      }
+    });
+
+    return () => {
+      responseListener.remove();
+    };
+  }, [user]);
 
   // Cleanup on unmount
   useEffect(() => {

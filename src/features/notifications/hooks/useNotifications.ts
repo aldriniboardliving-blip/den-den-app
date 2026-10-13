@@ -103,12 +103,11 @@ export function usePushToken() {
       await settingsRepository.set(user.id, PUSH_TOKEN_KEY, token);
       setPushToken(token);
 
-      // Register with backend (method needs to be implemented in api)
+      // Register with backend
       try {
-        await (api as any).registerPushToken?.(token, user.id);
+        await api.registerPushToken(token, 'expo');
       } catch (e) {
-        // Backend method not implemented yet
-        console.log('Push token registered locally:', token);
+        console.error('Failed to register push token with backend:', e);
       }
 
       return token;
@@ -124,11 +123,7 @@ export function usePushToken() {
     if (!user || !pushToken) return;
 
     try {
-      try {
-        await (api as any).unregisterPushToken?.(pushToken);
-      } catch (e) {
-        // Backend method not implemented yet
-      }
+      await api.unregisterPushToken(pushToken);
       await settingsRepository.delete(user.id, PUSH_TOKEN_KEY);
       setPushToken(null);
     } catch (error) {

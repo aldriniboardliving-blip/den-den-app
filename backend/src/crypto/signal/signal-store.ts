@@ -12,9 +12,11 @@ export class SignalStore implements StorageType {
   async getIdentityKeyPair(): Promise<KeyPairType | undefined> {
     const key = await this.getKey('identity_key');
     if (!key) return undefined;
+    const pubKeyBuffer = key.publicKey ? Buffer.from(key.publicKey, 'base64') : new Uint8Array(0);
+    const privKeyBuffer = key.privateKeyEncrypted ? Buffer.from(key.privateKeyEncrypted, 'base64') : new Uint8Array(0);
     return {
-      pubKey: key.publicKey,
-      privKey: key.privateKey,
+      pubKey: pubKeyBuffer.buffer.slice(pubKeyBuffer.byteOffset, pubKeyBuffer.byteOffset + pubKeyBuffer.byteLength),
+      privKey: privKeyBuffer.buffer.slice(privKeyBuffer.byteOffset, privKeyBuffer.byteOffset + privKeyBuffer.byteLength),
     };
   }
 

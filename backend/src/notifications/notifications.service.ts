@@ -1,8 +1,8 @@
 import { Injectable } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { DrizzleService } from '../common/database/drizzle.service';
-import { pushTokens } from '../common/database/schema';
-import { eq, and, desc } from 'drizzle-orm';
+import { pushTokens, users, devices } from '../common/database/schema';
+import { eq, and, desc, inArray } from 'drizzle-orm';
 import { createId } from '../common/utils/id';
 
 export interface PushPayload {
@@ -151,5 +151,52 @@ export class NotificationsService {
       message.includes('DeviceTokenNotForTopic') ||
       message.includes('Unregistered')
     );
+  }
+
+  async sendToUser(userId: string, payload: PushPayload) {
+    // Get all devices for the user, then get their push tokens
+    const userDevices = await this.drizzle.client.query.devices.findMany({
+      where: eq(devices.userId, userId),
+    });
+
+    const deviceIds = userDevices.map(d => d.id);
+    if (deviceIds.length === 0) return { sent: 0, failed: 0 };
+
+    const tokens = await this.drizzle.client.query.pushTokens.findMany({
+      where: and(inArray(pushTokens.deviceId, deviceIds), eq(pushTokens.active, true)),
+    });
+
+    if (tokens.length === 0) return { sent: 0, failed: 0 };
+
+    const results = await Promise.allSettled(
+      tokens.map((t) => this.sendViaProvider(t, payload)),
+    );
+
+    let sent = 0;
+    let failed = 0;
+
+    for (let i = 0; i < results.length; i++) {
+      const result = results[i];
+      const token = tokens[i];
+
+      if (result.status === 'fulfilled') {
+        sent++;
+        await this.drizzle.client
+          .update(pushTokens)
+          .set({ lastUsedAt: new Date() })
+          .where(eq(pushTokens.id, token.id));
+      } else {
+        failed++;
+        console.error(`Push failed for token ${token.id}:`, result.reason);
+        if (this.isTokenInvalid(result.reason)) {
+          await this.drizzle.client
+            .update(pushTokens)
+            .set({ active: false })
+            .where(eq(pushTokens.id, token.id));
+        }
+      }
+    }
+
+    return { sent, failed };
   }
 }
